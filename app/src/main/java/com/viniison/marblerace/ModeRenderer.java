@@ -108,7 +108,12 @@ public final class ModeRenderer {
         // Keep the slate text away from the race circle and characters.
         rect(original,0xA6000000,39,35,1041,155,16);
         type(original,"MARBLE LAB",540,90,56,Color.WHITE,true);
-        type(original,"BOLINHAS  •  CORRIDA DE OBSTÁCULOS",540,135,26,Color.WHITE,true);
+        String first=game.orbs.size()>0?game.orbs.get(0).racer.name:"BOLINHA 1";
+        String second=game.orbs.size()>1?game.orbs.get(1).racer.name:"BOLINHA 2";
+        if(first.length()>14)first=first.substring(0,14);
+        if(second.length()>14)second=second.substring(0,14);
+        String versus=first.toUpperCase(Locale.ROOT)+" VS "+second.toUpperCase(Locale.ROOT);
+        type(original,versus,540,134,32,Color.WHITE,true);
         int seconds=3-(int)Math.floor(game.elapsed);
         type(original,String.valueOf(Math.max(1,seconds)),540,h*.49f,125,Color.WHITE,true);
         type(original,"LARGADA EM",540,h*.34f,37,0xFF17212D,true);
