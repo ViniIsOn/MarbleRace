@@ -23,7 +23,7 @@ public final class ModeEngine {
     public static final float CX=540f, CY=905f, FINISH=6250f;
     public static class Orb {
         public final RaceEngine.Racer racer;
-        public float x,y,vx,vy,score,jumpTime;
+        public float x,y,vx,vy,score,jumpTime,speedVariance;
         public int hits=0;
         public boolean out=false;
         public int place=0, trailN=0,trailIndex=0;
@@ -37,6 +37,7 @@ public final class ModeEngine {
     }
     public final ArrayList<Orb> orbs=new ArrayList<>();
     public final int mode;
+    public final long seed;
     public static final float INTRO_SECONDS=3f, TRANSITION_SECONDS=.65f;
     public enum RingPhase { COUNTDOWN, TRANSITION, RACING, FINISHED }
     public final RaceEngine ringRace;
@@ -53,22 +54,27 @@ public final class ModeEngine {
     public float elapsed=0,coreLife=28;
     private final Random random;
     public ModeEngine(List<RaceEngine.Racer> racers,int mode){
+        this(racers,mode,RaceEngine.newRoundSeed());
+    }
+    public ModeEngine(List<RaceEngine.Racer> racers,int mode,long seed){
         this.mode=Math.max(0,Math.min(NAMES.length-1,mode));
+        this.seed=seed;
         for(RaceEngine.Racer racer:racers)orbs.add(new Orb(racer));
-        ringRace=this.mode==RING?new RaceEngine(racers,0):null;
-        random=new Random(889+this.mode*31L);
+        ringRace=this.mode==RING?new RaceEngine(racers,0,seed^0x71A4BEEF5L):null;
+        random=new Random(seed^(889L+this.mode*31L));
         reset();
     }
     public float radius(){return mode==ELIMINATION?Math.max(105,375-Math.max(0,elapsed-3)*7):379;}
     public float exitAngle(){return 90+38*(float)Math.sin(elapsed*.55f);}
     public boolean started(){return elapsed>=3;}
     public void reset(){
-        random.setSeed(889+mode*31L);
+        random.setSeed(seed^(889L+mode*31L));
         elapsed=0;running=false;finished=0;coreLife=28;
         if(ringRace!=null)ringRace.reset();
         for(int i=0;i<orbs.size();i++){
             Orb b=orbs.get(i);
             b.place=0;b.out=false;b.score=0;b.hits=0;b.jumpTime=0;b.trailN=0;b.trailIndex=0;
+            b.speedVariance=(random.nextFloat()-.5f)*105f;
             float angle=(float)(i*2*Math.PI/Math.max(1,orbs.size()));
             if(mode==RING){
                 // Racers gather at the bottom of the closed starting ring.
@@ -135,7 +141,7 @@ public final class ModeEngine {
             int i=0;
             for(Orb ball:orbs){
                 if(ball.place!=0){i++;continue;}
-                float pace=235+(i%4)*14+28*(float)Math.sin(step*.9f+i);
+                float pace=260+ball.speedVariance+28*(float)Math.sin(step*.9f+i);
                 float prev=ball.y;
                 ball.y+=Math.max(95,pace)*dt;
                 float curve=(float)Math.sin(ball.y*.0024f+i*.7f)*180;
@@ -156,7 +162,7 @@ public final class ModeEngine {
             int i=0;
             for(Orb ball:orbs){
                 if(ball.place!=0){i++;continue;}
-                float pace=215+(i%4)*14+17*(float)Math.cos(step*1.7f+i);
+                float pace=245+ball.speedVariance+17*(float)Math.cos(step*1.7f+i);
                 float before=ball.x;
                 ball.x+=Math.max(125,pace-((ball.hits>0)?ball.hits*11:0))*dt;
                 // Each marked ramp is a game event, not just visual decoration.
