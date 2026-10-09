@@ -80,7 +80,7 @@ final class VideoExporter {
             }
         }
     }
-    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,Progress progress,AtomicBoolean cancel)throws Exception {
+    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,Progress progress,AtomicBoolean cancel)throws Exception {
         if(Build.VERSION.SDK_INT<29)throw new Exception("A exportação requer Android 10 ou mais recente.");
         ContentResolver resolver=ctx.getContentResolver();
         ContentValues val=new ContentValues();
@@ -109,9 +109,12 @@ final class VideoExporter {
             codec=MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
             codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
             codec.start();
-            RaceEngine race=new RaceEngine(racers,track);
+            RaceEngine race=mode==0?new RaceEngine(racers,track):null;
+            ModeEngine mini=mode!=0?new ModeEngine(racers,mode-1):null;
             RaceRenderer renderer=new RaceRenderer();
-            race.running=true;
+            ModeRenderer gameRenderer=new ModeRenderer();
+            if(race!=null)race.running=true;
+            if(mini!=null)mini.running=true;
             bitmap=Bitmap.createBitmap(WIDTH,HEIGHT,Bitmap.Config.ARGB_8888);
             Canvas canvas=new Canvas(bitmap);
             int[] pixels=new int[WIDTH*HEIGHT];
@@ -119,8 +122,8 @@ final class VideoExporter {
             int lastFrame=0;
             for(int frame=0;frame<45*FPS;frame++) {
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
-                race.advance(1f/FPS);
-                renderer.render(canvas,race,true);
+                if(race!=null){race.advance(1f/FPS);renderer.render(canvas,race,true);}
+                else{mini.advance(1f/FPS);gameRenderer.render(canvas,mini,true);}
                 bitmap.getPixels(pixels,0,WIDTH,0,0,WIDTH,HEIGHT);
                 int input=-1,attempts=0;
                 while(input<0) {
@@ -137,7 +140,8 @@ final class VideoExporter {
                 drain(codec,output,info,false);
                 lastFrame=frame+1;
                 if(frame%15==0)progress.update(Math.min(99,(int)((frame+1)*100f/(45*FPS))));
-                if(race.finished==race.balls.size() && race.elapsed>=10)break;
+                if(race!=null && race.finished==race.balls.size() && race.elapsed>=10)break;
+                if(mini!=null && mini.winner()!=null && mini.elapsed>=5)break;
             }
             int eosBuffer=-1,tries=0;
             while(eosBuffer<0){
