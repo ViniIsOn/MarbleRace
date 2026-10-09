@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.2.1 beta 🎱
+# MarbleLab Studio — v1.2.2 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -28,6 +28,9 @@ A interface do Google pode restringir o uso em navegador embutido; por isso o fl
 
 ## Vídeos e APK
 
+- **Exportação acelerada de Shorts:** o aplicativo tenta primeiro codificar H.264 com hardware via GPU/OpenGL ES e MediaCodec Surface, eliminando a conversão lenta de cada pixel em Java. O vídeo mantém 720 × 1280 e 30 FPS; a renderização interna do caminho acelerado usa 540 × 960 e é escalada pela GPU.
+- Se a GPU não aceitar a operação, o app volta automaticamente ao codificador de compatibilidade, que pode levar mais tempo. O tempo real varia com o aparelho, quantidade de corredores e obstáculos.
+- A janela de progresso informa se está usando aceleração GPU ou compatibilidade e mostra os segundos decorridos.
 - Exportação MP4 vertical: 720 × 1280, 30 FPS, sem áudio. A Corrida do Aro exporta **a introdução e a corrida completa**, além de manter o pódio por 1,5 segundo. Adicione música no editor.
 - Abre em Android 8+, mas exportação MP4 interna requer Android 10+.
 - A versão é **beta**; compatibilidade da exportação depende do codificador H.264 do aparelho.
