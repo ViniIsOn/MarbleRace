@@ -120,6 +120,7 @@ final class VideoExporter {
             int[] pixels=new int[WIDTH*HEIGHT];
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
             int lastFrame=0;
+            int podiumFrames=0;
             for(int frame=0;frame<45*FPS;frame++) {
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
                 if(race!=null){race.advance(1f/FPS);renderer.render(canvas,race,true);}
@@ -140,8 +141,14 @@ final class VideoExporter {
                 drain(codec,output,info,false);
                 lastFrame=frame+1;
                 if(frame%15==0)progress.update(Math.min(99,(int)((frame+1)*100f/(45*FPS))));
-                if(race!=null && race.finished==race.balls.size() && race.elapsed>=10)break;
-                if(mini!=null && mini.winner()!=null && mini.elapsed>=5 && (mini.mode<=ModeEngine.CORE||mini.finished==mini.orbs.size()))break;
+                boolean classicFinished=race!=null && race.finished==race.balls.size() && race.elapsed>=10;
+                boolean modeFinished=mini!=null && mini.winner()!=null && mini.elapsed>=5
+                    && (mini.mode<=ModeEngine.CORE||mini.finished==mini.orbs.size());
+                // Leave the finish/podium visible for 1.5 seconds in exported Shorts.
+                if(classicFinished||modeFinished) {
+                    podiumFrames++;
+                    if(podiumFrames>=45)break;
+                }else podiumFrames=0;
             }
             int eosBuffer=-1,tries=0;
             while(eosBuffer<0){
