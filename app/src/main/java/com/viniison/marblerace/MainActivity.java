@@ -105,10 +105,10 @@ public class MainActivity extends Activity {
         TextView mark=text("●",37,LIME,true);
         brand.addView(mark,new LinearLayout.LayoutParams(dp(42),dp(56)));
         LinearLayout brandText=column();
-        TextView h=text("MARBLE RACE",22,Color.WHITE,true);
+        TextView h=text("MARBLE LAB",22,Color.WHITE,true);
         h.setLetterSpacing(.055f);
         brandText.addView(h,new LinearLayout.LayoutParams(-2,dp(31)));
-        TextView sub=text("RACE EDITOR  /  ORIGINAL TRACKS",10,0xFF97B1BF,true);
+        TextView sub=text("CREATOR ARENA  /  6 MODOS",10,0xFF97B1BF,true);
         sub.setLetterSpacing(.13f);
         brandText.addView(sub);
         brand.addView(brandText,new LinearLayout.LayoutParams(0,-2,1));
