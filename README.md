@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.3 beta 🎱
+# MarbleLab Studio — v1.4 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -51,3 +51,14 @@ Projeto sem anúncios próprios nem bibliotecas de rastreamento; o Google Images
 **Direitos de uso:** adicione apenas áudio que você pode utilizar. Não redistribuímos músicas nem importamos automaticamente playlists do YouTube. Para faixas NCS, confira a [política oficial](https://ncs.io/usage-policy) e credite os artistas. A permissão para usar músicas em um vídeo não equivale a uma licença para distribuí-las embutidas em um jogo.
 
 O arquivo do projeto mantém o mesmo applicationId e dados existentes. Todos os recursos são beta e precisam ser testados no Android.
+
+## Ajustes v1.4: música e resultado da corrida
+
+- Botão amarelo `♫ SEM MÚSICA • TOQUE PARA ADICIONAR` na tela principal.
+- Marcador `v1.4 • SEM ADS` no topo para ajudar a identificar APKs antigos.
+- Corridas e obstáculos recebem uma nova semente de aleatoriedade ao criar uma disputa, apertar RESET ou começar uma nova corrida. Portanto, Mario e Sonic não precisam terminar sempre na mesma ordem.
+- Velocidade de cada bolinha varia de forma moderada; modos Minhocas e Bicicletas também variam.
+- Ao exportar, o app reutiliza a semente da corrida exibida para tentar manter o mesmo vencedor e cenário no vídeo, com física em passos fixos de 30 Hz.
+- Corrigida a janela da biblioteca, que não deve mais esconder a lista de músicas no Android.
+
+Para atualizar sem perder seus corredores, **instale o APK novo por cima do existente**, sem desinstalar. Confira o número da versão e o botão de música depois da instalação.
