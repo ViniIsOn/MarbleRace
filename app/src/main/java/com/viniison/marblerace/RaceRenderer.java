@@ -231,7 +231,7 @@ public final class RaceRenderer {
         float progress=Math.max(0,Math.min(1,engine.leadY()/RaceEngine.FINISH_Y));
         fill(c,EDGES[t],45,h-39,45+990*progress,h-30,4);
         RaceEngine.Ball winner=engine.winner();
-        if(winner!=null){
+        if(winner!=null && engine.finished==engine.balls.size()){
             fill(c,0xF8FFFFFF,135,h*.37f,945,h*.57f,23);
             label(c,"WINNER",403,h*.44f,58,dark,true);
             label(c,clip(winner.racer.name,15),295,h*.50f,59,dark,true);
