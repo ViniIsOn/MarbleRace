@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.2.2 beta 🎱
+# MarbleLab Studio — v1.3 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -38,3 +38,16 @@ A interface do Google pode restringir o uso em navegador embutido; por isso o fl
 - Se a compilação falhar, envie o link da execução com o ❌ para que o log seja investigado.
 
 Projeto sem anúncios próprios nem bibliotecas de rastreamento; o Google Images e outros sites externos podem exibir conteúdo ou anúncios próprios.
+
+## Música para corridas e Shorts (v1.3)
+
+1. Na tela do jogo, toque em **♫ SEM MÚSICA**.
+2. Escolha **Adicionar músicas do celular** e selecione vários arquivos de áudio ao mesmo tempo.
+3. Escolha uma faixa ou ative **Aleatório**; a biblioteca lembra as músicas importadas, sem incorporá-las ao APK.
+4. Ao iniciar uma corrida, a música selecionada toca em loop. Pausar ou sair do app interrompe a reprodução.
+5. Ao exportar o vídeo, arquivos **AAC/M4A** podem ser unidos ao MP4 sem recodificar, deixando o Short pronto com trilha.
+6. Arquivos **MP3** são aceitos para ouvir durante a corrida, mas ainda **não são incorporados ao MP4**. Nesse caso, o jogo avisa que o vídeo foi salvo sem áudio e você pode adicionar a trilha em um editor de vídeo.
+
+**Direitos de uso:** adicione apenas áudio que você pode utilizar. Não redistribuímos músicas nem importamos automaticamente playlists do YouTube. Para faixas NCS, confira a [política oficial](https://ncs.io/usage-policy) e credite os artistas. A permissão para usar músicas em um vídeo não equivale a uma licença para distribuí-las embutidas em um jogo.
+
+O arquivo do projeto mantém o mesmo applicationId e dados existentes. Todos os recursos são beta e precisam ser testados no Android.
