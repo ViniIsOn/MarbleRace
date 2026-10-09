@@ -47,6 +47,8 @@ public class MainActivity extends Activity {
     private RaceEngine race;
     private ModeEngine mini;
     private RaceView preview;
+    private MusicLibrary music;
+    private TextView musicButton;
     private LinearLayout racerRow;
     private TextView startButton,speedButton,trackButton,modeButton;
     private LinearLayout classicTrackRow;
@@ -67,7 +69,9 @@ public class MainActivity extends Activity {
         if(selectedTrack<0||selectedTrack>=RaceEngine.TRACK_NAMES.length)selectedTrack=0;
         race=new RaceEngine(racers,selectedTrack);
         mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+        music=new MusicLibrary(this);
         makeScreen();
+        music.onUpdate(()->{if(musicButton!=null)musicButton.setText("♫  "+music.label()+"   ▾");});
     }
     private int dp(float d){return (int)(getResources().getDisplayMetrics().density*d+.5f);}
     private GradientDrawable shape(int color,int radius){
@@ -171,13 +175,15 @@ public class MainActivity extends Activity {
                 mini.toggle();
                 startButton.setText(mini.running?"Ⅱ  PAUSAR":"▶  CONTINUAR");
             }
+            if(selectedMode==0?race.running:mini.running)music.play();
+            else music.stop();
         });
         TextView reset=button("↺  RESET",false);
         LinearLayout.LayoutParams resetp=new LinearLayout.LayoutParams(0,dp(49),1.35f);
         resetp.leftMargin=dp(6);
         controls.addView(reset,resetp);
         reset.setOnClickListener(v->{
-            race.reset();mini.reset();
+            race.reset();mini.reset();music.stop();
             preview.renderer.resetCamera();preview.modeRenderer.resetCamera();
             startButton.setText("▶  INICIAR");preview.invalidate();
         });
@@ -190,6 +196,13 @@ public class MainActivity extends Activity {
             speedButton.setText(speed==1?"1×":speed==1.5?"1.5×":"2×");
         });
         root.addView(controls,new LinearLayout.LayoutParams(-1,dp(49)));
+
+        musicButton=button("♫  "+music.label()+"   ▾",false);
+        musicButton.setTextColor(0xFFF4D485);
+        LinearLayout.LayoutParams musicParams=new LinearLayout.LayoutParams(-1,dp(43));
+        musicParams.topMargin=dp(7);
+        root.addView(musicButton,musicParams);
+        musicButton.setOnClickListener(v->music.showDialog());
 
         LinearLayout toolbar=row();
         LinearLayout titles=column();
@@ -218,7 +231,7 @@ public class MainActivity extends Activity {
         root.addView(export,exp);
         export.setOnClickListener(v->exportVideo());
 
-        TextView foot=text("720 × 1280  /  30 FPS  /  SEM ÁUDIO  /  ATÉ 45 S",10,0xFF859BA7,true);
+        TextView foot=text("720 × 1280 • 30 FPS • M4A/AAC NO MP4 • ATÉ 45 S",10,0xFF859BA7,true);
         foot.setLetterSpacing(.065f);foot.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(25));root.addView(foot,fp);
     }
@@ -278,6 +291,7 @@ public class MainActivity extends Activity {
         }
     }
     private void refresh(){
+        music.stop();
         race=new RaceEngine(racers,selectedTrack);
         mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
         if(preview!=null){preview.renderer.resetCamera();preview.modeRenderer.resetCamera();preview.invalidate();}
@@ -288,6 +302,7 @@ public class MainActivity extends Activity {
         return selectedMode==0?"CORRIDA CLÁSSICA":ModeEngine.NAMES[selectedMode-1];
     }
     private void selectMode(){
+        music.stop();
         String[] names=new String[ModeEngine.NAMES.length+1];
         names[0]="CORRIDA CLÁSSICA — pista longa com obstáculos";
         for(int i=0;i<ModeEngine.NAMES.length;i++)
@@ -380,6 +395,10 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==MusicLibrary.PICK_AUDIO){
+            if(result==RESULT_OK)music.onPickerResult(data);
+            return;
+        }
         if(request!=CHOOSE_IMAGE||result!=RESULT_OK||data==null||data.getData()==null||pendingPicker==null)return;
         RaceEngine.Racer target=pendingPicker;
         Uri uri=data.getData();
@@ -474,10 +493,12 @@ public class MainActivity extends Activity {
         // Snapshot: racing changes after export do not modify the export.
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
         final int exportTrack=selectedTrack,exportMode=selectedMode;
+        final String exportMusic=music.selectedUri();
+        final String[] audioWarning={null};
         final long startedAt=SystemClock.elapsedRealtime();
         io.execute(()->{
             try{
-                Uri video=VideoExporter.export(this,snapshot,exportTrack,exportMode,
+                Uri video=VideoExporter.export(this,snapshot,exportTrack,exportMode,exportMusic,
                     new VideoExporter.Progress(){
                         @Override public void update(int pct){
                             runOnUiThread(()->{if(!cancel.get()){
@@ -489,12 +510,18 @@ public class MainActivity extends Activity {
                         @Override public void stage(String stage){
                             runOnUiThread(()->{if(!cancel.get())advice.setText(stage);});
                         }
+                        @Override public void musicWarning(String warning){
+                            audioWarning[0]=warning;
+                        }
                     },cancel);
                 runOnUiThread(()->{
                     progressDialog.dismiss();
                     toast("Short salvo em Filmes/MarbleRace!");
                     new AlertDialog.Builder(this).setTitle("VÍDEO PRONTO!")
-                        .setMessage("O MP4 foi salvo em Filmes/MarbleRace, em 720×1280. Adicione uma música no editor antes de publicar.")
+                        .setMessage("O MP4 foi salvo em Filmes/MarbleRace, em 720×1280. "+
+                            (audioWarning[0]!=null?"ATENÇÃO: trilha não incorporada. "+audioWarning[0]:
+                            (exportMusic==null?"Vídeo sem música. Adicione no editor antes de publicar.":
+                            "Música incorporada ao Short. Confira volume e crédito da faixa.")))
                         .setNegativeButton("Fechar",null)
                         .setPositiveButton("Abrir vídeo",(d,w)->{
                             Intent i=new Intent(Intent.ACTION_VIEW);
@@ -517,8 +544,9 @@ public class MainActivity extends Activity {
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
     @Override protected void onPause(){
         super.onPause();
+        if(music!=null)music.stop();
         if(race!=null && race.running){race.running=false;if(startButton!=null)startButton.setText("▶  CONTINUAR");}
         if(mini!=null && mini.running){mini.running=false;if(startButton!=null)startButton.setText("▶  CONTINUAR");}
     }
-    @Override protected void onDestroy(){io.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){if(music!=null)music.close();io.shutdownNow();super.onDestroy();}
 }
