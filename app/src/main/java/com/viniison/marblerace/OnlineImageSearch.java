@@ -50,6 +50,7 @@ final class OnlineImageSearch {
     private ResultAdapter adapter;
     private Listener listener;
     private int searchSerial=0;
+    private EditText searchField;
     OnlineImageSearch(Activity a,ExecutorService e){activity=a;io=e;}
     private static GradientDrawable bg(int color,int radius){
         GradientDrawable d=new GradientDrawable();
@@ -90,14 +91,15 @@ final class OnlineImageSearch {
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(16),dp(12),dp(16),dp(8));body.setBackgroundColor(0xFF101A23);
         TextView explanation=new TextView(activity);
-        explanation.setText("Pesquise PNG, JPG ou GIF no Wikimedia Commons. GIFs ficam estáticos na bolinha. Confira a licença antes de publicar.");
+        explanation.setText("Busca inteligente: Wikipedia + Commons. Para personagens difíceis, abra imagens na web. Verifique a licença antes de publicar. GIFs usam o primeiro quadro.");
         explanation.setTextSize(12);explanation.setTextColor(0xFFB1C3CE);
         body.addView(explanation,new LinearLayout.LayoutParams(-1,-2));
         LinearLayout form=new LinearLayout(activity);
         form.setGravity(Gravity.CENTER_VERTICAL);form.setPadding(0,dp(12),0,dp(9));
         EditText query=new EditText(activity);
         query.setSingleLine(true);query.setInputType(InputType.TYPE_CLASS_TEXT);
-        query.setHint("Ex.: ouriço azul, planeta, anime...");
+        query.setHint("Mario, Sonic, Blu, desenhos...");
+        searchField=query;
         query.setHintTextColor(0xFF7C91A0);query.setTextColor(Color.WHITE);
         query.setTextSize(14);query.setBackground(bg(0xFF253541,dp(10)));
         query.setPadding(dp(12),0,dp(12),0);
@@ -107,19 +109,43 @@ final class OnlineImageSearch {
         search.setBackground(bg(0xFFC6F47A,dp(12)));
         LinearLayout.LayoutParams sl=new LinearLayout.LayoutParams(dp(94),dp(46));sl.leftMargin=dp(8);form.addView(search,sl);
         body.addView(form);
+        LinearLayout quick=new LinearLayout(activity);quick.setOrientation(LinearLayout.HORIZONTAL);
+        quick.setGravity(Gravity.CENTER_VERTICAL);
+        for(String term:new String[]{"Mario","Sonic","Blu"}){
+            TextView chip=new TextView(activity);
+            chip.setText(term);chip.setTextSize(12);chip.setTextColor(0xFFCCF7A3);
+            chip.setGravity(Gravity.CENTER);chip.setBackground(bg(0xFF273942,dp(10)));
+            LinearLayout.LayoutParams chipLayout=new LinearLayout.LayoutParams(0,dp(37),1);
+            chipLayout.rightMargin=dp(6);quick.addView(chip,chipLayout);
+            chip.setOnClickListener(v->{query.setText(term);search(term);});
+        }
+        TextView web=new TextView(activity);web.setText("WEB ↗");
+        web.setTextSize(12);web.setGravity(Gravity.CENTER);web.setTextColor(Color.WHITE);
+        web.setBackground(bg(0xFF405575,dp(10)));
+        quick.addView(web,new LinearLayout.LayoutParams(0,dp(37),1));
+        web.setOnClickListener(v->{
+            String term=query.getText().toString().trim();
+            if(term.isEmpty())term="Mario character png";
+            try{
+                String url="https://www.google.com/search?tbm=isch&q="+URLEncoder.encode(term,"UTF-8");
+                activity.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(url)));
+                android.widget.Toast.makeText(activity,"Salve a imagem no navegador e importe pela galeria.",android.widget.Toast.LENGTH_LONG).show();
+            }catch(Exception e){status.setText("Não foi possível abrir o navegador.");}
+        });
+        body.addView(quick,new LinearLayout.LayoutParams(-1,dp(45)));
         loading=new ProgressBar(activity);
         loading.setVisibility(View.GONE);
         body.addView(loading,new LinearLayout.LayoutParams(-1,dp(25)));
         status=new TextView(activity);
-        status.setText("Digite um nome para procurar imagens.");
+        status.setText("Busque um personagem ou escolha um atalho.");
         status.setTextSize(12);status.setTextColor(0xFFB8C6CE);
         body.addView(status,new LinearLayout.LayoutParams(-1,dp(30)));
         grid=new GridView(activity);grid.setNumColumns(3);
         grid.setHorizontalSpacing(dp(7));grid.setVerticalSpacing(dp(7));
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
         adapter=new ResultAdapter();grid.setAdapter(adapter);
-        body.addView(grid,new LinearLayout.LayoutParams(-1,dp(335)));
-        dialog=new AlertDialog.Builder(activity).setTitle("BUSCAR IMAGEM ONLINE")
+        body.addView(grid,new LinearLayout.LayoutParams(-1,dp(310)));
+        dialog=new AlertDialog.Builder(activity).setTitle("ESCOLHER IMAGEM")
             .setView(body).setNegativeButton("Fechar",null).create();
         dialog.setOnShowListener(v->{
             if(dialog.getWindow()!=null)dialog.getWindow().setBackgroundDrawable(bg(0xFF101A23,dp(22)));
@@ -146,40 +172,19 @@ final class OnlineImageSearch {
         dialog.show();
     }
     private void search(String q) {
-        if(q.isEmpty()){status.setText("Digite algo para pesquisar.");return;}
+        if(q.isEmpty()){status.setText("Digite um nome para pesquisar.");return;}
         final int serial=++searchSerial;
-        status.setText("Buscando resultados...");loading.setVisibility(View.VISIBLE);
+        status.setText("Procurando imagens relevantes...");loading.setVisibility(View.VISIBLE);
         results.clear();adapter.notifyDataSetChanged();
         io.execute(()->{
-            ArrayList<Result> next=new ArrayList<>();
-            String error=null;
-            try{
-                String u="https://commons.wikimedia.org/w/api.php?action=query"
-                    +"&generator=search&gsrnamespace=6&gsrlimit=30&gsrsearch="
-                    +URLEncoder.encode(q,"UTF-8")
-                    +"&prop=imageinfo&iiprop=url%7Cmime&iiurlwidth=300&format=json&formatversion=2";
-                JSONObject root=new JSONObject(new String(request(u,1024*1024),"UTF-8"));
-                JSONArray pages=root.optJSONObject("query")==null?null:root.getJSONObject("query").optJSONArray("pages");
-                if(pages!=null)for(int i=0;i<pages.length();i++){
-                    JSONObject entry=pages.optJSONObject(i);if(entry==null)continue;
-                    JSONArray inf=entry.optJSONArray("imageinfo");if(inf==null||inf.length()==0)continue;
-                    JSONObject data=inf.optJSONObject(0);if(data==null)continue;
-                    String mime=data.optString("mime");
-                    if(!mime.equals("image/png")&&!mime.equals("image/jpeg")&&!mime.equals("image/gif")&&!mime.equals("image/webp"))continue;
-                    String preview=data.optString("thumburl",data.optString("url"));
-                    String source=data.optString("url");
-                    if(!preview.startsWith("https://")||!source.startsWith("https://"))continue;
-                    String name=entry.optString("title").replaceFirst("^File:","");
-                    next.add(new Result(name,preview,source));
-                }
-            }catch(Exception e){error=e.getMessage();}
-            final String err=error;
+            ArrayList<Result> found=SmartImageSearch.find(q);
             ui.post(()->{
-                if(serial!=searchSerial || dialog==null || !dialog.isShowing())return;
+                if(serial!=searchSerial||dialog==null||!dialog.isShowing())return;
                 loading.setVisibility(View.GONE);
-                results.clear();results.addAll(next);adapter.notifyDataSetChanged();
-                status.setText(err!=null?"Sem conexão com a busca. Tente novamente.":next.isEmpty()?
-                    "Nenhuma imagem compatível. Tente outro termo.":next.size()+" imagens encontradas. Toque para usar.");
+                results.clear();results.addAll(found);adapter.notifyDataSetChanged();
+                status.setText(found.isEmpty()?
+                    "Nenhuma imagem pública encontrada. Toque em WEB ↗ e importe pela galeria.":
+                    found.size()+" resultados. Confira os direitos antes de publicar.");
             });
         });
     }
