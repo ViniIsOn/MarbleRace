@@ -32,7 +32,7 @@ public final class RaceEngine {
     }
     public static class Ball {
         public final Racer racer;
-        public float x,y,vx,vy;
+        public float x,y,vx,vy,speedBonus;
         public int place=0,trailCount=0,trailCursor=0;
         public float finishTime=-1;
         public final float[] trailX=new float[TRAIL_SAMPLES],trailY=new float[TRAIL_SAMPLES];
@@ -104,6 +104,7 @@ public final class RaceEngine {
             b.y=110+(i/4)*105;
             b.vx=(starter.nextFloat()-.5f)*330f;
             b.vy=145+starter.nextFloat()*145f;
+            b.speedBonus=(starter.nextFloat()-.5f)*85f;
             b.mark();
             balls.add(b);
         }
@@ -118,7 +119,7 @@ public final class RaceEngine {
             Ball b=balls.get(k);
             if(b.place>0)continue;
             float acceleration=track==3?230f:210f;
-            b.vy=Math.min(track==2?485f:455f,b.vy+acceleration*dt);
+            b.vy=Math.min((track==2?485f:455f)+b.speedBonus,b.vy+acceleration*dt);
             b.vx+=Math.sin(elapsed*1.8f+k*2.4f+track)*72*dt;
             b.vx*=.998f;
             float prevY=b.y;
