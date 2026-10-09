@@ -86,30 +86,40 @@ final class VideoExporter {
     }
     static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,
                       String musicUri,Progress progress,AtomicBoolean cancel)throws Exception{
+        final boolean hasMusic=musicUri!=null&&!musicUri.isEmpty();
+        Progress videoProgress=hasMusic?new Progress(){
+            @Override public void update(int pct){progress.update(Math.min(92,pct*92/100));}
+            @Override public void stage(String label){progress.stage(label);}
+            @Override public void musicWarning(String warning){progress.musicWarning(warning);}
+        }:progress;
         Uri video;
         try {
-            video=FastVideoExporter.export(ctx,racers,track,mode,progress,cancel);
+            video=FastVideoExporter.export(ctx,racers,track,mode,videoProgress,cancel);
         }catch(InterruptedException cancelled){
             throw cancelled;
         }catch(Exception gpuError){
             if(cancel.get())throw new InterruptedException("Exportação cancelada");
             progress.stage("Modo compatibilidade • sem GPU");
-            progress.update(0);
-            video=exportSoftware(ctx,racers,track,mode,progress,cancel);
+            videoProgress.update(0);
+            video=exportSoftware(ctx,racers,track,mode,videoProgress,cancel);
         }
-        if(musicUri==null||musicUri.isEmpty())return video;
+        if(!hasMusic)return video;
         if(cancel.get()){
             ctx.getContentResolver().delete(video,null,null);
             throw new InterruptedException("Exportação cancelada");
         }
         progress.stage("Adicionando trilha sonora ao MP4");
+        progress.update(93);
         try{
-            return MusicMuxer.addMusic(ctx,video,Uri.parse(musicUri),cancel);
+            Uri soundVideo=MusicMuxer.addMusic(ctx,video,Uri.parse(musicUri),cancel);
+            progress.update(100);
+            return soundVideo;
         }catch(InterruptedException cancelled){
             ctx.getContentResolver().delete(video,null,null);
             throw cancelled;
         }catch(Exception e){
             progress.musicWarning(e.getMessage());
+            progress.update(100);
             // The silent MP4 remains available. Never report that it has audio.
             return video;
         }
