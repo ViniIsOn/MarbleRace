@@ -141,7 +141,7 @@ final class VideoExporter {
                 lastFrame=frame+1;
                 if(frame%15==0)progress.update(Math.min(99,(int)((frame+1)*100f/(45*FPS))));
                 if(race!=null && race.finished==race.balls.size() && race.elapsed>=10)break;
-                if(mini!=null && mini.winner()!=null && mini.elapsed>=5)break;
+                if(mini!=null && mini.winner()!=null && mini.elapsed>=5 && (mini.mode<=ModeEngine.CORE||mini.finished==mini.orbs.size()))break;
             }
             int eosBuffer=-1,tries=0;
             while(eosBuffer<0){
