@@ -22,7 +22,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 final class VideoExporter {
     private static final int WIDTH=720,HEIGHT=1280,FPS=30;
-    interface Progress { void update(int percent); }
+    interface Progress {
+        void update(int percent);
+        default void stage(String label) {}
+    }
     private static class Output {
         final MediaMuxer muxer;
         int track=-1;
@@ -81,6 +84,20 @@ final class VideoExporter {
         }
     }
     static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,Progress progress,AtomicBoolean cancel)throws Exception {
+        try {
+            return FastVideoExporter.export(ctx,racers,track,mode,progress,cancel);
+        } catch(InterruptedException cancelled) {
+            throw cancelled;
+        } catch(Exception unsupportedGpu) {
+            if(cancel.get())throw new InterruptedException("Exportação cancelada");
+            // Some Android GPU drivers and AVC encoders reject EGL input.
+            // Keep the existing (slower) encoder for compatibility.
+            progress.stage("Modo compatibilidade • sem GPU");
+            progress.update(0);
+            return exportSoftware(ctx,racers,track,mode,progress,cancel);
+        }
+    }
+    private static Uri exportSoftware(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,Progress progress,AtomicBoolean cancel)throws Exception {
         if(Build.VERSION.SDK_INT<29)throw new Exception("A exportação requer Android 10 ou mais recente.");
         ContentResolver resolver=ctx.getContentResolver();
         ContentValues val=new ContentValues();
