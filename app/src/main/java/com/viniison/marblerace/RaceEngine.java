@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Simulação determinística: a mesma pista produz a mesma corrida no preview e no vídeo. */
 public final class RaceEngine {
@@ -53,14 +54,23 @@ public final class RaceEngine {
     public final ArrayList<Ball> balls=new ArrayList<>();
     public final ArrayList<Bumper> bumpers=new ArrayList<>();
     public final int track;
+    public final long seed;
+    private static final AtomicLong ROUND_COUNTER=new AtomicLong(1);
+    /** A new unpredictable-but-reproducible race number is assigned per match. */
+    public static long newRoundSeed(){
+        return System.nanoTime() ^ (System.currentTimeMillis()<<17)
+            ^ (ROUND_COUNTER.getAndIncrement()*0x9E3779B97F4A7C15L);
+    }
     public boolean running=false;
     public float elapsed=0;
     public int finished=0;
-    public RaceEngine(List<Racer> racers){this(racers,0);}
-    public RaceEngine(List<Racer> entries,int track){
+    public RaceEngine(List<Racer> racers){this(racers,0,newRoundSeed());}
+    public RaceEngine(List<Racer> entries,int track){this(entries,track,newRoundSeed());}
+    public RaceEngine(List<Racer> entries,int track,long seed){
         this.track=Math.max(0,Math.min(TRACK_NAMES.length-1,track));
+        this.seed=seed;
         racers.addAll(entries);
-        Random random=new Random(10942+this.track*619L);
+        Random random=new Random(seed ^ (10942L+this.track*619L));
         for(int i=0;i<20;i++){
             float y=480+i*278f;
             float cx=centerAt(y);
@@ -85,13 +95,15 @@ public final class RaceEngine {
         return bumper.x+(bumper.type==2?(float)Math.sin(elapsed*2.8f+bumper.phase)*115f:0f);
     }
     public void reset(){
+        // Reset only replays the same seed. Create a new engine for a NEW race.
+        Random starter=new Random(seed ^ 0xD1B54A32D192ED03L);
         balls.clear();
         for(int i=0;i<racers.size();i++){
             Ball b=new Ball(racers.get(i));
-            b.x=centerAt(120)+(-1.5f+i%4)*137f;
+            b.x=centerAt(120)+(-1.5f+i%4)*137f+(starter.nextFloat()-.5f)*35f;
             b.y=110+(i/4)*105;
-            b.vx=(i%2==0?1:-1)*(55+i*7);
-            b.vy=125+i*12;
+            b.vx=(starter.nextFloat()-.5f)*330f;
+            b.vy=145+starter.nextFloat()*145f;
             b.mark();
             balls.add(b);
         }
