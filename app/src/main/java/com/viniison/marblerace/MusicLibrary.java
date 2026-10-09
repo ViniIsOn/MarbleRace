@@ -33,6 +33,8 @@ final class MusicLibrary {
     private int selected=-1;
     private boolean shuffle=false;
     private boolean requested=false;
+    private Runnable updateListener;
+    void onUpdate(Runnable listener){updateListener=listener;}
     private int generation=0;
     MusicLibrary(Activity context){
         activity=context;prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);
@@ -61,6 +63,7 @@ final class MusicLibrary {
         }
         prefs.edit().putString("songs",arr.toString()).putInt("selected",selected)
             .putBoolean("shuffle",shuffle).apply();
+        if(updateListener!=null)updateListener.run();
     }
     void launchPicker(){
         Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -85,8 +88,8 @@ final class MusicLibrary {
                 flags&Intent.FLAG_GRANT_READ_URI_PERMISSION);
         }catch(Exception ignored){}
         for(Track t:tracks)if(t.uri.equals(uri.toString()))return;
-        if(tracks.size()>=150){
-            Toast.makeText(activity,"Limite de 150 músicas na biblioteca.",Toast.LENGTH_LONG).show();
+        if(tracks.size()>=300){
+            Toast.makeText(activity,"Limite de 300 músicas na biblioteca.",Toast.LENGTH_LONG).show();
             return;
         }
         tracks.add(new Track(name(uri),uri.toString()));
@@ -157,7 +160,7 @@ final class MusicLibrary {
     }
     void play(){
         if(!hasTrack())return;
-        if(player!=null && requested && player.isPlaying())return;
+        if(player!=null && requested){try{if(player.isPlaying())return;}catch(Exception ignored){}}
         stop();
         if(shuffle && tracks.size()>1){selected=random.nextInt(tracks.size());save();}
         final String uri=tracks.get(selected).uri;
