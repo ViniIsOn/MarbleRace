@@ -3,6 +3,9 @@ package com.viniison.marblerace;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -13,16 +16,70 @@ import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.provider.MediaStore;
-import android.graphics.Canvas;
-import android.view.Surface;
-import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class VideoExporter {
+    private static final int WIDTH=720,HEIGHT=1280,FPS=30;
     interface Progress { void update(int percent); }
+    private static class Output {
+        final MediaMuxer muxer;
+        int track=-1;
+        boolean started=false,ended=false;
+        Output(MediaMuxer m){muxer=m;}
+    }
+    private static int clamp(int v){return Math.max(0,Math.min(255,v));}
+    // Write YUV_420_888 using the actual plane row and pixel strides.
+    private static void writeImage(Image image,int[] pixels) {
+        Image.Plane[] planes=image.getPlanes();
+        if(planes.length<3)throw new IllegalStateException("Codificador YUV não suportado");
+        ByteBuffer yy=planes[0].getBuffer(),uu=planes[1].getBuffer(),vv=planes[2].getBuffer();
+        int ys=planes[0].getRowStride(),yp=planes[0].getPixelStride();
+        int us=planes[1].getRowStride(),up=planes[1].getPixelStride();
+        int vs=planes[2].getRowStride(),vp=planes[2].getPixelStride();
+        for(int y=0;y<HEIGHT;y++) {
+            int src=y*WIDTH;
+            int row=y*ys;
+            int cu=y/2*us,cv=y/2*vs;
+            for(int x=0;x<WIDTH;x++){
+                int argb=pixels[src+x];
+                int r=(argb>>16)&255,g=(argb>>8)&255,b=argb&255;
+                yy.put(row+x*yp,(byte)((77*r+150*g+29*b)>>8));
+                if((y&1)==0 && (x&1)==0){
+                    int u=clamp(((-43*r-85*g+128*b)>>8)+128);
+                    int v=clamp(((128*r-107*g-21*b)>>8)+128);
+                    uu.put(cu+(x/2)*up,(byte)u);
+                    vv.put(cv+(x/2)*vp,(byte)v);
+                }
+            }
+        }
+    }
+    private static void drain(MediaCodec codec,Output output,MediaCodec.BufferInfo info,boolean awaitEos) throws Exception{
+        int idle=0;
+        while(true) {
+            int index=codec.dequeueOutputBuffer(info,awaitEos?10000:0);
+            if(index==MediaCodec.INFO_TRY_AGAIN_LATER){
+                if(!awaitEos)return;
+                if(++idle>1800)throw new Exception("O codificador parou de responder");
+            }else if(index==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                if(output.started)throw new Exception("Formato do vídeo mudou inesperadamente");
+                output.track=output.muxer.addTrack(codec.getOutputFormat());
+                output.muxer.start();output.started=true;
+            }else if(index>=0) {
+                if(info.size>0 && (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG)==0){
+                    if(!output.started)throw new Exception("Faixa MP4 não iniciada");
+                    ByteBuffer buffer=codec.getOutputBuffer(index);
+                    if(buffer==null)throw new Exception("Buffer de vídeo ausente");
+                    buffer.position(info.offset);buffer.limit(info.offset+info.size);
+                    output.muxer.writeSampleData(output.track,buffer,info);
+                }
+                boolean eos=(info.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0;
+                codec.releaseOutputBuffer(index,false);
+                if(eos){output.ended=true;return;}
+            }
+        }
+    }
     static Uri export(Context ctx,List<RaceEngine.Racer> racers,Progress progress,AtomicBoolean cancel)throws Exception {
         if(Build.VERSION.SDK_INT<29)throw new Exception("A exportação requer Android 10 ou mais recente.");
         ContentResolver resolver=ctx.getContentResolver();
@@ -32,101 +89,75 @@ final class VideoExporter {
         val.put(MediaStore.Video.Media.RELATIVE_PATH,Environment.DIRECTORY_MOVIES+"/MarbleRace");
         val.put(MediaStore.Video.Media.IS_PENDING,1);
         Uri uri=resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI,val);
-        if(uri==null)throw new Exception("Não foi possível criar vídeo na galeria.");
+        if(uri==null)throw new Exception("Não foi possível criar o MP4.");
         ParcelFileDescriptor fd=null;
         MediaCodec codec=null;
         MediaMuxer muxer=null;
-        Surface input=null;
-        boolean started=false,success=false;
+        Output output=null;
+        Bitmap bitmap=null;
+        boolean success=false;
         try {
             fd=resolver.openFileDescriptor(uri,"rw");
-            if(fd==null)throw new Exception("Não foi possível criar arquivo de saída.");
+            if(fd==null)throw new Exception("Falha ao criar arquivo de vídeo");
             muxer=new MediaMuxer(fd.getFileDescriptor(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-            MediaFormat fmt=MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,720,1280);
-            fmt.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-            fmt.setInteger(MediaFormat.KEY_BIT_RATE,3500000);
-            fmt.setInteger(MediaFormat.KEY_FRAME_RATE,30);
-            fmt.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,2);
+            output=new Output(muxer);
+            MediaFormat format=MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,WIDTH,HEIGHT);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+            format.setInteger(MediaFormat.KEY_BIT_RATE,3200000);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE,FPS);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,2);
             codec=MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
-            codec.configure(fmt,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
-            input=codec.createInputSurface();
+            codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
             codec.start();
             RaceEngine race=new RaceEngine(racers);
             RaceRenderer renderer=new RaceRenderer();
             race.running=true;
+            bitmap=Bitmap.createBitmap(WIDTH,HEIGHT,Bitmap.Config.ARGB_8888);
+            Canvas canvas=new Canvas(bitmap);
+            int[] pixels=new int[WIDTH*HEIGHT];
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
-            int track=-1;
-            long start=SystemClock.elapsedRealtime();
-            int maxFrames=45*30;
-            int lastReport=-1;
-            for(int frame=0;frame<maxFrames;frame++){
+            int lastFrame=0;
+            for(int frame=0;frame<45*FPS;frame++) {
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
-                race.advance(1f/30);
-                Canvas canvas=null;
-                try {
-                    // Hardware Canvas draws directly into the H.264 encoder's input Surface.
-                    canvas=input.lockHardwareCanvas();
-                    renderer.render(canvas,race,true);
-                }catch(Exception e){
-                    throw new Exception("Este aparelho não aceita exportação direta. Use o gravador de tela do Android.",e);
-                }finally{
-                    if(canvas!=null)input.unlockCanvasAndPost(canvas);
-                }
-                boolean more=true;
-                while(more){
-                    int out=codec.dequeueOutputBuffer(info,0);
-                    if(out==MediaCodec.INFO_TRY_AGAIN_LATER){more=false;}
-                    else if(out==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-                        if(started)throw new Exception("Formato do codificador alterado duas vezes");
-                        track=muxer.addTrack(codec.getOutputFormat());muxer.start();started=true;
-                    }else if(out>=0){
-                        if(info.size>0){
-                            if(!started)throw new Exception("Vídeo sem faixa válida");
-                            ByteBuffer buf=codec.getOutputBuffer(out);
-                            if(buf==null)throw new Exception("Buffer do vídeo ausente");
-                            buf.position(info.offset);buf.limit(info.offset+info.size);
-                            muxer.writeSampleData(track,buf,info);
-                        }
-                        codec.releaseOutputBuffer(out,false);
+                race.advance(1f/FPS);
+                renderer.render(canvas,race,true);
+                bitmap.getPixels(pixels,0,WIDTH,0,0,WIDTH,HEIGHT);
+                int input=-1,attempts=0;
+                while(input<0) {
+                    input=codec.dequeueInputBuffer(10000);
+                    if(input<0){
+                        drain(codec,output,info,false);
+                        if(++attempts>800)throw new Exception("Codificador ocupado por tempo excessivo");
                     }
                 }
-                int percent=Math.min(99,(int)((frame+1)*100f/maxFrames));
-                if(percent!=lastReport && frame%15==0){lastReport=percent;progress.update(percent);}
-                // Frames use real presentation timestamps in surface mode.
-                long next=start+(frame+1)*1000L/30;
-                long wait=next-SystemClock.elapsedRealtime();
-                if(wait>0)SystemClock.sleep(wait);
-                if(race.finished==race.balls.size() && race.elapsed>10)break;
+                Image inputImage=codec.getInputImage(input);
+                if(inputImage==null)throw new Exception("O aparelho não suporta a exportação de quadros YUV");
+                try{writeImage(inputImage,pixels);}finally{inputImage.close();}
+                codec.queueInputBuffer(input,0,WIDTH*HEIGHT*3/2,frame*1000000L/FPS,0);
+                drain(codec,output,info,false);
+                lastFrame=frame+1;
+                if(frame%15==0)progress.update(Math.min(99,(int)((frame+1)*100f/(45*FPS))));
+                if(race.finished==race.balls.size() && race.elapsed>=10)break;
             }
-            codec.signalEndOfInputStream();
-            boolean eos=false;
-            long until=SystemClock.elapsedRealtime()+18000;
-            while(!eos && SystemClock.elapsedRealtime()<until){
-                int out=codec.dequeueOutputBuffer(info,10000);
-                if(out==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){
-                    if(!started){track=muxer.addTrack(codec.getOutputFormat());muxer.start();started=true;}
-                }else if(out>=0){
-                    if(info.size>0){
-                        if(!started)throw new Exception("Codificador sem saída");
-                        ByteBuffer buf=codec.getOutputBuffer(out);
-                        if(buf==null)throw new Exception("Codificador retornou buffer vazio");
-                        buf.position(info.offset);buf.limit(info.offset+info.size);
-                        muxer.writeSampleData(track,buf,info);
-                    }
-                    eos=(info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0;
-                    codec.releaseOutputBuffer(out,false);
-                }
+            int eosBuffer=-1,tries=0;
+            while(eosBuffer<0){
+                eosBuffer=codec.dequeueInputBuffer(10000);
+                if(eosBuffer<0){drain(codec,output,info,false);if(++tries>500)throw new Exception("Erro ao terminar o vídeo");}
             }
-            if(!started||!eos)throw new Exception("A gravação não terminou corretamente.");
-            progress.update(100);
+            codec.queueInputBuffer(eosBuffer,0,0,lastFrame*1000000L/FPS,MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            drain(codec,output,info,true);
+            if(!output.started||!output.ended)throw new Exception("O arquivo MP4 não foi finalizado");
             success=true;
-        }finally{
+            progress.update(100);
+        }finally {
+            if(bitmap!=null)bitmap.recycle();
             if(codec!=null){try{codec.stop();}catch(Exception ignored){}try{codec.release();}catch(Exception ignored){}}
-            if(input!=null)try{input.release();}catch(Exception ignored){}
-            if(muxer!=null){if(started)try{muxer.stop();}catch(Exception ignored){}try{muxer.release();}catch(Exception ignored){}}
+            if(muxer!=null){if(output!=null && output.started)try{muxer.stop();}catch(Exception ignored){}try{muxer.release();}catch(Exception ignored){}}
             if(fd!=null)try{fd.close();}catch(Exception ignored){}
-            if(success){ContentValues done=new ContentValues();done.put(MediaStore.Video.Media.IS_PENDING,0);resolver.update(uri,done,null,null);}
-            else resolver.delete(uri,null,null);
+            if(success){
+                ContentValues done=new ContentValues();done.put(MediaStore.Video.Media.IS_PENDING,0);
+                resolver.update(uri,done,null,null);
+            }else resolver.delete(uri,null,null);
         }
         return uri;
     }
