@@ -45,9 +45,12 @@ public class MainActivity extends Activity {
     private final ArrayList<RaceEngine.Racer> racers=new ArrayList<>();
     private final ExecutorService io=Executors.newFixedThreadPool(4);
     private RaceEngine race;
+    private ModeEngine mini;
     private RaceView preview;
     private LinearLayout racerRow;
-    private TextView startButton,speedButton,trackButton;
+    private TextView startButton,speedButton,trackButton,modeButton;
+    private LinearLayout classicTrackRow;
+    private int selectedMode=1;
     private int selectedTrack=0;
     private RaceEngine.Racer pendingPicker;
     private float speed=1;
@@ -58,9 +61,12 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         loadRacers();
+        selectedMode=getPreferences(0).getInt("mode_v3",1);
+        if(selectedMode<0||selectedMode>ModeEngine.NAMES.length)selectedMode=1;
         selectedTrack=getPreferences(0).getInt("track_v2",0);
         if(selectedTrack<0||selectedTrack>=RaceEngine.TRACK_NAMES.length)selectedTrack=0;
         race=new RaceEngine(racers,selectedTrack);
+        mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
         makeScreen();
     }
     private int dp(float d){return (int)(getResources().getDisplayMetrics().density*d+.5f);}
@@ -120,7 +126,19 @@ public class MainActivity extends Activity {
         root.addView(frame,frameParams);
         preview=new RaceView();frame.addView(preview,new FrameLayout.LayoutParams(-1,-1));
 
+        LinearLayout modeRow=row();
+        LinearLayout modeTitle=column();
+        modeTitle.addView(text("TIPO DE JOGO",13,Color.WHITE,true),new LinearLayout.LayoutParams(-1,dp(25)));
+        modeTitle.addView(text("Corridas e competições",10,0xFF91A8B3,false));
+        modeRow.addView(modeTitle,new LinearLayout.LayoutParams(0,dp(44),1));
+        modeButton=button(modeName()+"  ▾",false);
+        modeButton.setTextColor(LIME);
+        modeRow.addView(modeButton,new LinearLayout.LayoutParams(dp(190),dp(44)));
+        modeButton.setOnClickListener(v->selectMode());
+        root.addView(modeRow,new LinearLayout.LayoutParams(-1,dp(51)));
+
         LinearLayout trackRow=row();
+        classicTrackRow=trackRow;
         LinearLayout trackCaption=column();
         TextView trackHeading=text("SELECIONAR PISTA",12,0xFFDBE9EE,true);
         trackCaption.addView(trackHeading,new LinearLayout.LayoutParams(-1,dp(21)));
@@ -133,24 +151,35 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams trackParams=new LinearLayout.LayoutParams(-1,dp(49));
         trackParams.bottomMargin=dp(4);
         root.addView(trackRow,trackParams);
+        trackRow.setVisibility(selectedMode==0?View.VISIBLE:View.GONE);
 
         LinearLayout controls=row();
         startButton=button("▶  INICIAR",true);
         LinearLayout.LayoutParams startp=new LinearLayout.LayoutParams(0,dp(49),2.1f);
         controls.addView(startButton,startp);
         startButton.setOnClickListener(v->{
-            if(race.finished>=race.balls.size() && !race.balls.isEmpty()) {
-                race.reset();preview.renderer.resetCamera();
+            if(selectedMode==0){
+                if(race.finished>=race.balls.size() && !race.balls.isEmpty()) {
+                    race.reset();preview.renderer.resetCamera();
+                }
+                race.toggle();
+                startButton.setText(race.running?"Ⅱ  PAUSAR":"▶  CONTINUAR");
+            }else{
+                if(mini.winner()!=null || (mini.finished==mini.orbs.size()&&mini.finished>0)){
+                    mini.reset();preview.modeRenderer.resetCamera();
+                }
+                mini.toggle();
+                startButton.setText(mini.running?"Ⅱ  PAUSAR":"▶  CONTINUAR");
             }
-            race.toggle();
-            startButton.setText(race.running?"Ⅱ  PAUSAR":"▶  CONTINUAR");
         });
         TextView reset=button("↺  RESET",false);
         LinearLayout.LayoutParams resetp=new LinearLayout.LayoutParams(0,dp(49),1.35f);
         resetp.leftMargin=dp(6);
         controls.addView(reset,resetp);
         reset.setOnClickListener(v->{
-            race.reset();preview.renderer.resetCamera();startButton.setText("▶  INICIAR");preview.invalidate();
+            race.reset();mini.reset();
+            preview.renderer.resetCamera();preview.modeRenderer.resetCamera();
+            startButton.setText("▶  INICIAR");preview.invalidate();
         });
         speedButton=button("1×",false);
         LinearLayout.LayoutParams speedp=new LinearLayout.LayoutParams(0,dp(49),.85f);
@@ -195,6 +224,7 @@ public class MainActivity extends Activity {
     }
     private class RaceView extends View {
         final RaceRenderer renderer=new RaceRenderer();
+        final ModeRenderer modeRenderer=new ModeRenderer();
         long last=System.nanoTime();
         RaceView(){super(MainActivity.this);setLayerType(View.LAYER_TYPE_HARDWARE,null);}
         @Override protected void onDraw(Canvas canvas){
@@ -202,10 +232,17 @@ public class MainActivity extends Activity {
             long now=System.nanoTime();
             float dt=Math.min(.035f,(now-last)/1000000000f);
             last=now;
-            if(race!=null)race.advance(dt*speed);
-            if(race!=null)renderer.render(canvas,race,false);
-            if(race!=null && !race.running && race.finished==race.balls.size() && race.finished>0 && startButton!=null)
-                startButton.setText("▶  NOVA CORRIDA");
+            if(selectedMode==0){
+                if(race!=null)race.advance(dt*speed);
+                if(race!=null)renderer.render(canvas,race,false);
+                if(race!=null && !race.running && race.finished==race.balls.size() && race.finished>0 && startButton!=null)
+                    startButton.setText("▶  NOVA CORRIDA");
+            }else{
+                if(mini!=null)mini.advance(dt*speed);
+                if(mini!=null)modeRenderer.render(canvas,mini,false);
+                if(mini!=null && !mini.running && mini.winner()!=null && startButton!=null)
+                    startButton.setText("▶  NOVA DISPUTA");
+            }
             postInvalidateOnAnimation();
         }
     }
@@ -242,9 +279,27 @@ public class MainActivity extends Activity {
     }
     private void refresh(){
         race=new RaceEngine(racers,selectedTrack);
-        if(preview!=null){preview.renderer.resetCamera();preview.invalidate();}
+        mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+        if(preview!=null){preview.renderer.resetCamera();preview.modeRenderer.resetCamera();preview.invalidate();}
         if(startButton!=null)startButton.setText("▶  INICIAR");
         redrawRacers();saveRacers();
+    }
+    private String modeName(){
+        return selectedMode==0?"CORRIDA CLÁSSICA":ModeEngine.NAMES[selectedMode-1];
+    }
+    private void selectMode(){
+        String[] names=new String[ModeEngine.NAMES.length+1];
+        names[0]="CORRIDA CLÁSSICA — pista longa com obstáculos";
+        for(int i=0;i<ModeEngine.NAMES.length;i++)
+            names[i+1]=ModeEngine.NAMES[i]+" — "+ModeEngine.DESCRIPTIONS[i];
+        new AlertDialog.Builder(this).setTitle("ESCOLHA O MODO")
+            .setSingleChoiceItems(names,selectedMode,(dialog,which)->{
+                selectedMode=which;
+                getPreferences(0).edit().putInt("mode_v3",selectedMode).apply();
+                modeButton.setText(modeName()+"  ▾");
+                classicTrackRow.setVisibility(selectedMode==0?View.VISIBLE:View.GONE);
+                refresh();dialog.dismiss();
+            }).setNegativeButton("Cancelar",null).show();
     }
     private void selectTrack(){
         String[] names=new String[RaceEngine.TRACK_NAMES.length];
@@ -278,7 +333,7 @@ public class MainActivity extends Activity {
                     case 0:rename(racer);break;
                     case 1:chooseGallery(racer);break;
                     case 2:new OnlineImageSearch(this,io).open((bitmap,title)->{
-                        saveAvatarAsync(racer,bitmap);
+                        new PortraitCropper(this,bitmap,cut->saveAvatarAsync(racer,cut)).show();
                     });break;
                     case 3:chooseColor(racer);break;
                     case 4:racer.avatar=null;racer.imagePath="";refresh();break;
@@ -339,8 +394,7 @@ public class MainActivity extends Activity {
                     bitmap=BitmapFactory.decodeStream(in,null,opts);
                 }
                 if(bitmap==null)throw new Exception("Imagem não compatível");
-                saveAvatar(target,bitmap);
-                runOnUiThread(()->{refresh();toast("Imagem aplicada!");});
+                runOnUiThread(()->new PortraitCropper(this,bitmap,cut->saveAvatarAsync(target,cut)).show());
             }catch(Exception e){runOnUiThread(()->toast("Não foi possível ler essa imagem."));}
         });
     }
@@ -421,7 +475,7 @@ public class MainActivity extends Activity {
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
         io.execute(()->{
             try{
-                Uri video=VideoExporter.export(this,snapshot,selectedTrack,pct->
+                Uri video=VideoExporter.export(this,snapshot,selectedTrack,selectedMode,pct->
                     runOnUiThread(()->{if(!cancel.get()){
                         bar.setProgress(pct);message.setText("Renderizando... "+pct+"%");
                     }}),cancel);
@@ -453,6 +507,7 @@ public class MainActivity extends Activity {
     @Override protected void onPause(){
         super.onPause();
         if(race!=null && race.running){race.running=false;if(startButton!=null)startButton.setText("▶  CONTINUAR");}
+        if(mini!=null && mini.running){mini.running=false;if(startButton!=null)startButton.setText("▶  CONTINUAR");}
     }
     @Override protected void onDestroy(){io.shutdownNow();super.onDestroy();}
 }
