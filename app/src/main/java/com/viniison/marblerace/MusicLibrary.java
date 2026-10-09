@@ -145,7 +145,7 @@ final class MusicLibrary {
                 if(which==3){stop();selected=-1;save();showDialog();return;}
                 int idx=which-4;
                 if(idx>=0&&idx<tracks.size()){
-                    selected=idx;save();play();showDialog();return;
+                    stop();selected=idx;save();play();showDialog();return;
                 }
                 if(which==tracks.size()+4){
                     new AlertDialog.Builder(activity)
