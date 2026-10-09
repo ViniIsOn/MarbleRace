@@ -17,7 +17,8 @@ import java.util.Locale;
 public final class ModeRenderer {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private float camera=0;
-    public void resetCamera(){camera=0;}
+    private final RaceRenderer courseRenderer=new RaceRenderer();
+    public void resetCamera(){camera=0;courseRenderer.resetCamera();}
     private void disc(Canvas c,int color,float x,float y,float radius){
         paint.reset();paint.setAntiAlias(true);paint.setColor(color);
         c.drawCircle(x,y,radius,paint);
@@ -47,6 +48,10 @@ public final class ModeRenderer {
     }
     public void render(Canvas original,ModeEngine engine,boolean exporting){
         if(original.getWidth()==0||original.getHeight()==0)return;
+        if(engine.mode==ModeEngine.RING){
+            renderRingStartAndRace(original,engine,exporting);
+            return;
+        }
         original.save();
         float s=original.getWidth()/1080f;
         original.scale(s,s);
@@ -62,6 +67,55 @@ public final class ModeRenderer {
         hud(c,height,engine);
         original.restore();
     }
+    private void renderRingStartAndRace(Canvas original,ModeEngine game,boolean exporting){
+        if(game.elapsed>=ModeEngine.INTRO_SECONDS){
+            // During the handoff the circle shrinks away, revealing the real course.
+            // Both screen preview and exported MP4 use exactly the same engine state.
+            courseRenderer.render(original,game.ringRace,exporting,true);
+            float progress=(game.elapsed-ModeEngine.INTRO_SECONDS)/ModeEngine.TRANSITION_SECONDS;
+            if(progress<1){
+                progress=Math.max(0,Math.min(1,progress));
+                float scale=original.getWidth()/1080f;
+                float h=original.getHeight()/scale;
+                original.save();original.scale(scale,scale);
+                Paint handoff=new Paint(Paint.ANTI_ALIAS_FLAG);
+                handoff.setColor(fade(Color.BLACK,(int)(230*(1-progress))));
+                handoff.setStrokeWidth(52*(1-progress)+1);
+                handoff.setStyle(Paint.Style.STROKE);
+                original.drawCircle(540,h*.47f,379*(1-progress),handoff);
+                paint.reset();paint.setAntiAlias(true);
+                paint.setColor(fade(0xFF162938,(int)(188*(1-progress))));
+                paint.setTextSize(105-25*progress);
+                paint.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD));
+                paint.setTextAlign(Paint.Align.CENTER);
+                original.drawText("GO!",540,h*.47f,paint);
+                original.restore();
+            }
+            return;
+        }
+        // Opening slate only: 3, 2, 1 inside a CLOSED circle.
+        original.save();
+        float screenScale=original.getWidth()/1080f;
+        original.scale(screenScale,screenScale);
+        float h=original.getHeight()/screenScale;
+        original.drawColor(0xFF62C4FA);
+        for(int i=0;i<9;i++){
+            float x=80+(i*237)%1000;
+            float y=h*.15f+(i*197)%Math.max(250,(int)(h*.70f));
+            cloud(original,x,y,.70f+(i%3)*.28f);
+        }
+        arena(original,h,game);
+        // Keep the slate text away from the race circle and characters.
+        rect(original,0xA6000000,39,35,1041,155,16);
+        type(original,"MARBLE LAB",540,90,56,Color.WHITE,true);
+        type(original,"BOLINHAS  •  CORRIDA DE OBSTÁCULOS",540,135,26,Color.WHITE,true);
+        int seconds=3-(int)Math.floor(game.elapsed);
+        type(original,String.valueOf(Math.max(1,seconds)),540,h*.49f,125,Color.WHITE,true);
+        type(original,"LARGADA EM",540,h*.34f,37,0xFF17212D,true);
+        type(original,"A PARTIR DO ARO, ATÉ A CHEGADA",540,h-90,34,0xFF182C3C,true);
+        original.restore();
+    }
+
     private void arena(Canvas c,float h,ModeEngine game){
         if(game.mode==ModeEngine.RING||game.mode==ModeEngine.ELIMINATION){
             for(int i=0;i<7;i++){
@@ -95,11 +149,7 @@ public final class ModeRenderer {
         paint.setColor(0x33000000);
         c.drawCircle(ModeEngine.CX+7,ModeEngine.CY+13,r,paint);
         paint.setColor(Color.BLACK);
-        if(game.mode==ModeEngine.RING){
-            float gap=40;
-            c.drawArc(ModeEngine.CX-r,ModeEngine.CY-r,ModeEngine.CX+r,ModeEngine.CY+r,
-                game.exitAngle()+gap*.5f,360-gap,false,paint);
-        }else c.drawCircle(ModeEngine.CX,ModeEngine.CY,r,paint);
+        c.drawCircle(ModeEngine.CX,ModeEngine.CY,r,paint);
         paint.setStyle(Paint.Style.FILL);
         if(game.mode==ModeEngine.ELIMINATION && game.started()){
             paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(8);
