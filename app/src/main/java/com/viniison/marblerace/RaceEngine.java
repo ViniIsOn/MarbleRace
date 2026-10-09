@@ -157,9 +157,17 @@ public final class RaceEngine {
         if(finished==balls.size())running=false;
     }
     public float leadY(){
-        float m=0;
-        for(Ball b:balls)m=Math.max(m,b.y);
-        return m;
+        // Keep the camera on competitors who are still racing, instead of
+        // locking to the finish line after the first ball gets there.
+        float activeLead=0;
+        boolean active=false;
+        for(Ball b:balls){
+            if(b.place==0){
+                active=true;
+                activeLead=Math.max(activeLead,b.y);
+            }
+        }
+        return active?activeLead:(finished>0?FINISH_Y:0);
     }
     public Ball winner(){for(Ball b:balls)if(b.place==1)return b;return null;}
     public List<Ball> ranked(){
