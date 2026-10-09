@@ -23,7 +23,8 @@ public final class ModeEngine {
     public static final float CX=540f, CY=905f, FINISH=6250f;
     public static class Orb {
         public final RaceEngine.Racer racer;
-        public float x,y,vx,vy,score;
+        public float x,y,vx,vy,score,jumpTime;
+        public int hits=0;
         public boolean out=false;
         public int place=0, trailN=0,trailIndex=0;
         public final float[] trailX=new float[28],trailY=new float[28];
@@ -54,7 +55,7 @@ public final class ModeEngine {
         elapsed=0;running=false;finished=0;coreLife=28;
         for(int i=0;i<orbs.size();i++){
             Orb b=orbs.get(i);
-            b.place=0;b.out=false;b.score=0;b.trailN=0;b.trailIndex=0;
+            b.place=0;b.out=false;b.score=0;b.hits=0;b.jumpTime=0;b.trailN=0;b.trailIndex=0;
             float angle=(float)(i*2*Math.PI/Math.max(1,orbs.size()));
             if(mode==WORMS){
                 b.x=180+(i%4)*225;b.y=180+(i/4)*96;
@@ -123,8 +124,18 @@ public final class ModeEngine {
             for(Orb ball:orbs){
                 if(ball.place!=0){i++;continue;}
                 float pace=215+(i%4)*14+17*(float)Math.cos(step*1.7f+i);
-                ball.x+=Math.max(125,pace)*dt;
-                ball.y=640+i*135+28*(float)Math.sin(ball.x*.0053f+i);
+                float before=ball.x;
+                ball.x+=Math.max(125,pace-((ball.hits>0)?ball.hits*11:0))*dt;
+                // Each marked ramp is a game event, not just visual decoration.
+                int prior=(int)Math.floor((before-(115+(i%2)*80+133))/330f);
+                int next=(int)Math.floor((ball.x-(115+(i%2)*80+133))/330f);
+                if(next>prior && next>=0 && (next+i)%4==0){
+                    ball.jumpTime=.56f;
+                    if((next+i)%5==0){ball.hits++;ball.x=Math.max(before,ball.x-65);}
+                }
+                ball.jumpTime=Math.max(0,ball.jumpTime-dt);
+                ball.y=640+i*135-70*(float)Math.sin(ball.jumpTime/.56f*Math.PI)
+                    +28*(float)Math.sin(ball.x*.0053f+i);
                 ball.mark();
                 if(ball.x>=FINISH){
                     ball.x=FINISH;ball.place=++finished;
@@ -210,7 +221,7 @@ public final class ModeEngine {
             if(remain==1 && candidate!=null)win(candidate);
             if(remain==0)running=false;
         }
-        if(elapsed>65){
+        if(elapsed>37){
             Orb best=null;
             for(Orb b:orbs)if(!b.out && (best==null||b.score>best.score))best=b;
             if(best==null&&!orbs.isEmpty())best=orbs.get(0);
