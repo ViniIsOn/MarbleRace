@@ -25,6 +25,7 @@ final class VideoExporter {
     interface Progress {
         void update(int percent);
         default void stage(String label) {}
+        default void musicWarning(String message) {}
     }
     private static class Output {
         final MediaMuxer muxer;
@@ -83,18 +84,34 @@ final class VideoExporter {
             }
         }
     }
-    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,Progress progress,AtomicBoolean cancel)throws Exception {
+    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,
+                      String musicUri,Progress progress,AtomicBoolean cancel)throws Exception{
+        Uri video;
         try {
-            return FastVideoExporter.export(ctx,racers,track,mode,progress,cancel);
-        } catch(InterruptedException cancelled) {
+            video=FastVideoExporter.export(ctx,racers,track,mode,progress,cancel);
+        }catch(InterruptedException cancelled){
             throw cancelled;
-        } catch(Exception unsupportedGpu) {
+        }catch(Exception gpuError){
             if(cancel.get())throw new InterruptedException("Exportação cancelada");
-            // Some Android GPU drivers and AVC encoders reject EGL input.
-            // Keep the existing (slower) encoder for compatibility.
             progress.stage("Modo compatibilidade • sem GPU");
             progress.update(0);
-            return exportSoftware(ctx,racers,track,mode,progress,cancel);
+            video=exportSoftware(ctx,racers,track,mode,progress,cancel);
+        }
+        if(musicUri==null||musicUri.isEmpty())return video;
+        if(cancel.get()){
+            ctx.getContentResolver().delete(video,null,null);
+            throw new InterruptedException("Exportação cancelada");
+        }
+        progress.stage("Adicionando trilha sonora ao MP4");
+        try{
+            return MusicMuxer.addMusic(ctx,video,Uri.parse(musicUri),cancel);
+        }catch(InterruptedException cancelled){
+            ctx.getContentResolver().delete(video,null,null);
+            throw cancelled;
+        }catch(Exception e){
+            progress.musicWarning(e.getMessage());
+            // The silent MP4 remains available. Never report that it has audio.
+            return video;
         }
     }
     private static Uri exportSoftware(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,Progress progress,AtomicBoolean cancel)throws Exception {
