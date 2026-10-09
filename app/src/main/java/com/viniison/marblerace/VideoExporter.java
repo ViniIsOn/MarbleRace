@@ -84,7 +84,7 @@ final class VideoExporter {
             }
         }
     }
-    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,
+    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,long seed,
                       String musicUri,Progress progress,AtomicBoolean cancel)throws Exception{
         final boolean hasMusic=musicUri!=null&&!musicUri.isEmpty();
         Progress videoProgress=hasMusic?new Progress(){
@@ -94,14 +94,14 @@ final class VideoExporter {
         }:progress;
         Uri video;
         try {
-            video=FastVideoExporter.export(ctx,racers,track,mode,videoProgress,cancel);
+            video=FastVideoExporter.export(ctx,racers,track,mode,seed,videoProgress,cancel);
         }catch(InterruptedException cancelled){
             throw cancelled;
         }catch(Exception gpuError){
             if(cancel.get())throw new InterruptedException("Exportação cancelada");
             progress.stage("Modo compatibilidade • sem GPU");
             videoProgress.update(0);
-            video=exportSoftware(ctx,racers,track,mode,videoProgress,cancel);
+            video=exportSoftware(ctx,racers,track,mode,seed,videoProgress,cancel);
         }
         if(!hasMusic)return video;
         if(cancel.get()){
@@ -124,7 +124,7 @@ final class VideoExporter {
             return video;
         }
     }
-    private static Uri exportSoftware(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,Progress progress,AtomicBoolean cancel)throws Exception {
+    private static Uri exportSoftware(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,long seed,Progress progress,AtomicBoolean cancel)throws Exception {
         if(Build.VERSION.SDK_INT<29)throw new Exception("A exportação requer Android 10 ou mais recente.");
         ContentResolver resolver=ctx.getContentResolver();
         ContentValues val=new ContentValues();
@@ -153,8 +153,8 @@ final class VideoExporter {
             codec=MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
             codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
             codec.start();
-            RaceEngine race=mode==0?new RaceEngine(racers,track):null;
-            ModeEngine mini=mode!=0?new ModeEngine(racers,mode-1):null;
+            RaceEngine race=mode==0?new RaceEngine(racers,track,seed):null;
+            ModeEngine mini=mode!=0?new ModeEngine(racers,mode-1,seed):null;
             RaceRenderer renderer=new RaceRenderer();
             ModeRenderer gameRenderer=new ModeRenderer();
             if(race!=null)race.running=true;
