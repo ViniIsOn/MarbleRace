@@ -46,6 +46,10 @@ public final class RaceRenderer {
     private String clip(String s,int n){return s.length()>n?s.substring(0,n-1)+"…":s;}
     private int alpha(int c,int a){return (c&0x00FFFFFF)|((Math.max(0,Math.min(255,a)))<<24);}
     public void render(Canvas original,RaceEngine engine,boolean export){
+        render(original,engine,export,false);
+    }
+    /** Bouncy-style race: black rails, blue sky and no survival mechanics. */
+    public void render(Canvas original,RaceEngine engine,boolean export,boolean ringIntroCourse){
         if(original.getWidth()<1||original.getHeight()<1)return;
         original.save();
         float factor=original.getWidth()/1080f;
@@ -54,7 +58,7 @@ public final class RaceRenderer {
         float h=original.getHeight()/factor;
         int t=engine.track;
         p.reset();p.setAntiAlias(true);
-        p.setShader(new LinearGradient(0,0,0,h,SKY[t],GROUND[t],Shader.TileMode.CLAMP));
+        p.setShader(new LinearGradient(0,0,0,h,ringIntroCourse?0xFF61C7FB:SKY[t],ringIntroCourse?0xFFB7E9FF:GROUND[t],Shader.TileMode.CLAMP));
         c.drawRect(0,0,1080,h,p);p.setShader(null);
         float target=Math.max(0,engine.leadY()-h*.47f);
         camera+=(target-camera)*(export?.13f:.17f);
@@ -65,14 +69,14 @@ public final class RaceRenderer {
         // Thick outer rail and thin inner line, fewer interface effects.
         trackShape(engine,top,bottom);
         p.reset();p.setAntiAlias(true);p.setColor(alpha(DARK[t],90));
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(45);
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(ringIntroCourse?72:45);
         c.drawPath(path,p);
-        p.setStyle(Paint.Style.FILL);p.setColor(ROAD[t]);c.drawPath(path,p);
-        trackLines(c,engine,t,top,bottom);
+        p.setStyle(Paint.Style.FILL);p.setColor(ringIntroCourse?0xFF80D4FA:ROAD[t]);c.drawPath(path,p);
+        trackLines(c,engine,t,top,bottom,ringIntroCourse);
         for(float y=650;y<RaceEngine.FINISH_Y;y+=940){
             if(y<top-80||y>bottom+80)continue;
             float cx=engine.centerAt(y);
-            fill(c,alpha(EDGES[t],170),cx-320,y-26,cx+320,y+34,11);
+            fill(c,alpha(ringIntroCourse?0xFF101820:EDGES[t],ringIntroCourse?225:170),cx-320,y-26,cx+320,y+34,11);
             for(int i=0;i<7;i++) {
                 float x=cx-288+i*92;
                 stroke(c,alpha(Color.WHITE,200),11,x,y-5,x+23,y+14);
@@ -82,15 +86,15 @@ public final class RaceRenderer {
             if(b.y<top-110||b.y>bottom+110)continue;
             float x=engine.obstacleX(b);
             circle(c,alpha(DARK[t],90),x+7,b.y+10,b.r+15);
-            circle(c,EDGES[t],x,b.y,b.r+7);
-            circle(c,b.type==1?DARK[t]:PINS[t],x,b.y,b.r);
+            circle(c,ringIntroCourse?0xFF080B10:EDGES[t],x,b.y,b.r+7);
+            circle(c,ringIntroCourse?(b.type==1?0xFF16141B:0xFF333D47):(b.type==1?DARK[t]:PINS[t]),x,b.y,b.r);
             if(b.type==1){
                 // Rotating hazard with visible spokes.
                 for(int a=0;a<4;a++){
                     double ang=engine.elapsed*3+b.phase+a*Math.PI/2;
                     float px=x+(float)Math.cos(ang)*b.r*.74f;
                     float py=b.y+(float)Math.sin(ang)*b.r*.74f;
-                    stroke(c,PINS[t],9,x,b.y,px,py);
+                    stroke(c,ringIntroCourse?0xFFFFC947:PINS[t],9,x,b.y,px,py);
                 }
                 circle(c,Color.WHITE,x,b.y,9);
             }else{
@@ -100,7 +104,7 @@ public final class RaceRenderer {
         float fy=RaceEngine.FINISH_Y;
         if(fy>=top-90&&fy<=bottom+90){
             float cx=engine.centerAt(fy);
-            fill(c,DARK[t],cx-356,fy-22,cx+356,fy+26,3);
+            fill(c,ringIntroCourse?Color.BLACK:DARK[t],cx-356,fy-22,cx+356,fy+26,3);
             for(int i=0;i<16;i++)if((i&1)==0)
                 fill(c,Color.WHITE,cx-350+i*44,fy-19,cx-306+i*44,fy+23,1);
             label(c,"FINISH",cx-110,fy-64,52,DARK[t],true);
@@ -108,7 +112,8 @@ public final class RaceRenderer {
         for(RaceEngine.Ball b:engine.balls)drawTrail(c,b,top,bottom);
         for(RaceEngine.Ball b:engine.balls)if(b.y>=top-70&&b.y<=bottom+70)drawBall(c,b);
         c.restore();
-        drawHud(c,engine,h);
+        if(ringIntroCourse)drawRingRaceHud(c,engine,h);
+        else drawHud(c,engine,h);
         original.restore();
     }
     private void trackShape(RaceEngine engine,float top,float bottom){
@@ -150,7 +155,7 @@ public final class RaceRenderer {
         circle(c,0xBBFFFFFF,x-45*sc,y+8*sc,33*sc);
         circle(c,0xBBFFFFFF,x+43*sc,y+9*sc,37*sc);
     }
-    private void trackLines(Canvas c,RaceEngine engine,int t,float top,float bottom){
+    private void trackLines(Canvas c,RaceEngine engine,int t,float top,float bottom,boolean ringIntroCourse){
         for(int side=-1;side<=1;side+=2){
             path.reset();
             for(float y=top;y<=bottom+30;y+=20){
@@ -158,13 +163,13 @@ public final class RaceRenderer {
                 if(y==top)path.moveTo(x,y);else path.lineTo(x,y);
             }
             p.reset();p.setAntiAlias(true);p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(11);p.setColor(EDGES[t]);c.drawPath(path,p);
+            p.setStrokeWidth(ringIntroCourse?19:11);p.setColor(ringIntroCourse?Color.BLACK:EDGES[t]);c.drawPath(path,p);
         }
         for(float y=(float)Math.floor(top/180)*180;y<=bottom;y+=180){
             float cx=engine.centerAt(y);
-            fill(c,alpha(EDGES[t],75),cx-5,y+18,cx+5,y+90,5);
-            circle(c,alpha(EDGES[t],170),cx-330,y+58,9);
-            circle(c,alpha(EDGES[t],170),cx+330,y+58,9);
+            fill(c,alpha(ringIntroCourse?Color.WHITE:EDGES[t],ringIntroCourse?130:75),cx-5,y+18,cx+5,y+90,5);
+            circle(c,alpha(ringIntroCourse?Color.BLACK:EDGES[t],170),cx-330,y+58,9);
+            circle(c,alpha(ringIntroCourse?Color.BLACK:EDGES[t],170),cx+330,y+58,9);
         }
     }
     private void drawTrail(Canvas c,RaceEngine.Ball b,float top,float bottom){
@@ -202,6 +207,33 @@ public final class RaceRenderer {
             c.drawText(first,b.x-p.measureText(first)/2,b.y+14,p);
         }
         circle(c,0x99FFFFFF,b.x-16,b.y-17,8);
+    }
+    /** Broadcast scoreboard kept outside the obstacle area for easy Shorts cropping. */
+    private void drawRingRaceHud(Canvas c,RaceEngine engine,float h){
+        fill(c,0xDA000000,26,24,1054,142,18);
+        label(c,"MARBLE LAB  /  OBSTACLE RACE",53,78,39,Color.WHITE,true);
+        label(c,"RING START  →  FINISH LINE",56,119,25,0xFFC7EFFF,true);
+        String stamp=String.format(Locale.US,"%02d:%02d",(int)engine.elapsed/60,(int)engine.elapsed%60);
+        fill(c,0xCCFFFFFF,842,51,1030,112,13);
+        label(c,stamp,889,94,33,Color.BLACK,true);
+        List<RaceEngine.Ball> leaders=engine.ranked();
+        float base=h-188;
+        fill(c,0xE9000000,24,base,1056,h-25,22);
+        label(c,"CLASSIFICAÇÃO",51,base+40,27,Color.WHITE,true);
+        for(int i=0;i<Math.min(3,leaders.size());i++){
+            RaceEngine.Ball b=leaders.get(i);
+            int x=62+i*333;
+            circle(c,b.racer.color,x+22,base+94,22);
+            label(c,(i+1)+". "+clip(b.racer.name,10),x+56,base+105,26,Color.WHITE,true);
+        }
+        fill(c,0xFF42525B,45,h-41,1035,h-31,6);
+        float progress=Math.max(0,Math.min(1,engine.leadY()/RaceEngine.FINISH_Y));
+        fill(c,0xFFFFCA42,45,h-41,45+990*progress,h-31,6);
+        if(engine.winner()!=null&&engine.finished==engine.balls.size()){
+            fill(c,0xEB05080B,132,h*.36f,948,h*.58f,24);
+            label(c,"CHEGADA!",330,h*.45f,66,0xFFFFCA42,true);
+            label(c,clip(engine.winner().racer.name,15),298,h*.51f,57,Color.WHITE,true);
+        }
     }
     private void drawHud(Canvas c,RaceEngine engine,float h){
         int t=engine.track;
