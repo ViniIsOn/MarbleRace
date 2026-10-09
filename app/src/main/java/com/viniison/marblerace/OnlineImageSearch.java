@@ -78,6 +78,7 @@ final class OnlineImageSearch {
         BitmapFactory.decodeByteArray(data,0,data.length,bounds);
         if(bounds.outWidth<=0 || bounds.outHeight<=0)throw new Exception("Formato de imagem não suportado");
         BitmapFactory.Options options=new BitmapFactory.Options();
+        options.inSampleSize=1;
         int max=Math.max(bounds.outWidth,bounds.outHeight);
         while(max/options.inSampleSize>650)options.inSampleSize*=2;
         Bitmap bitmap=BitmapFactory.decodeByteArray(data,0,data.length,options);
