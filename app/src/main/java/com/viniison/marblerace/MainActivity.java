@@ -47,7 +47,8 @@ public class MainActivity extends Activity {
     private RaceEngine race;
     private RaceView preview;
     private LinearLayout racerRow;
-    private TextView startButton,speedButton;
+    private TextView startButton,speedButton,trackButton;
+    private int selectedTrack=0;
     private RaceEngine.Racer pendingPicker;
     private float speed=1;
     private int speedIndex=0;
@@ -57,7 +58,9 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         loadRacers();
-        race=new RaceEngine(racers);
+        selectedTrack=getPreferences(0).getInt("track_v2",0);
+        if(selectedTrack<0||selectedTrack>=RaceEngine.TRACK_NAMES.length)selectedTrack=0;
+        race=new RaceEngine(racers,selectedTrack);
         makeScreen();
     }
     private int dp(float d){return (int)(getResources().getDisplayMetrics().density*d+.5f);}
@@ -99,7 +102,7 @@ public class MainActivity extends Activity {
         TextView h=text("MARBLE RACE",22,Color.WHITE,true);
         h.setLetterSpacing(.055f);
         brandText.addView(h,new LinearLayout.LayoutParams(-2,dp(31)));
-        TextView sub=text("STUDIO  /  CREATOR EDITION",10,0xFF97B1BF,true);
+        TextView sub=text("RACE EDITOR  /  ORIGINAL TRACKS",10,0xFF97B1BF,true);
         sub.setLetterSpacing(.13f);
         brandText.addView(sub);
         brand.addView(brandText,new LinearLayout.LayoutParams(0,-2,1));
@@ -116,6 +119,20 @@ public class MainActivity extends Activity {
         frameParams.topMargin=dp(7);frameParams.bottomMargin=dp(11);
         root.addView(frame,frameParams);
         preview=new RaceView();frame.addView(preview,new FrameLayout.LayoutParams(-1,-1));
+
+        LinearLayout trackRow=row();
+        LinearLayout trackCaption=column();
+        TextView trackHeading=text("SELECIONAR PISTA",12,0xFFDBE9EE,true);
+        trackCaption.addView(trackHeading,new LinearLayout.LayoutParams(-1,dp(21)));
+        trackCaption.addView(text("Quatro cenários originais",10,0xFF8FA7B5,false));
+        trackRow.addView(trackCaption,new LinearLayout.LayoutParams(0,dp(42),1));
+        trackButton=button(RaceEngine.TRACK_NAMES[selectedTrack]+"  ▾",false);
+        trackButton.setTextColor(LIME);
+        trackRow.addView(trackButton,new LinearLayout.LayoutParams(dp(167),dp(43)));
+        trackButton.setOnClickListener(v->selectTrack());
+        LinearLayout.LayoutParams trackParams=new LinearLayout.LayoutParams(-1,dp(49));
+        trackParams.bottomMargin=dp(4);
+        root.addView(trackRow,trackParams);
 
         LinearLayout controls=row();
         startButton=button("▶  INICIAR",true);
@@ -224,11 +241,27 @@ public class MainActivity extends Activity {
         }
     }
     private void refresh(){
-        race=new RaceEngine(racers);
+        race=new RaceEngine(racers,selectedTrack);
         if(preview!=null){preview.renderer.resetCamera();preview.invalidate();}
         if(startButton!=null)startButton.setText("▶  INICIAR");
         redrawRacers();saveRacers();
     }
+    private void selectTrack(){
+        String[] names=new String[RaceEngine.TRACK_NAMES.length];
+        for(int i=0;i<names.length;i++)
+            names[i]=RaceEngine.TRACK_NAMES[i]+"  —  "+RaceEngine.TRACK_DETAILS[i];
+        new AlertDialog.Builder(this)
+            .setTitle("ESCOLHER PISTA")
+            .setSingleChoiceItems(names,selectedTrack,(dialog,which)->{
+                selectedTrack=which;
+                getPreferences(0).edit().putInt("track_v2",selectedTrack).apply();
+                trackButton.setText(RaceEngine.TRACK_NAMES[selectedTrack]+"  ▾");
+                refresh();
+                dialog.dismiss();
+            })
+            .setNegativeButton("Cancelar",null).show();
+    }
+
     private void addRacer(){
         if(racers.size()>=8){toast("Limite de 8 corredores.");return;}
         int i=racers.size();
@@ -375,7 +408,7 @@ public class MainActivity extends Activity {
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
         io.execute(()->{
             try{
-                Uri video=VideoExporter.export(this,snapshot,pct->
+                Uri video=VideoExporter.export(this,snapshot,selectedTrack,pct->
                     runOnUiThread(()->{if(!cancel.get()){
                         bar.setProgress(pct);message.setText("Renderizando... "+pct+"%");
                     }}),cancel);
