@@ -80,7 +80,7 @@ final class VideoExporter {
             }
         }
     }
-    static Uri export(Context ctx,List<RaceEngine.Racer> racers,Progress progress,AtomicBoolean cancel)throws Exception {
+    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,Progress progress,AtomicBoolean cancel)throws Exception {
         if(Build.VERSION.SDK_INT<29)throw new Exception("A exportação requer Android 10 ou mais recente.");
         ContentResolver resolver=ctx.getContentResolver();
         ContentValues val=new ContentValues();
@@ -109,7 +109,7 @@ final class VideoExporter {
             codec=MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
             codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);
             codec.start();
-            RaceEngine race=new RaceEngine(racers);
+            RaceEngine race=new RaceEngine(racers,track);
             RaceRenderer renderer=new RaceRenderer();
             race.running=true;
             bitmap=Bitmap.createBitmap(WIDTH,HEIGHT,Bitmap.Config.ARGB_8888);
