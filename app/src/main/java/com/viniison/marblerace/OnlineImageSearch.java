@@ -91,7 +91,7 @@ final class OnlineImageSearch {
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(16),dp(12),dp(16),dp(8));body.setBackgroundColor(0xFF101A23);
         TextView explanation=new TextView(activity);
-        explanation.setText("Busca inteligente: Wikipedia + Commons. Para personagens difíceis, abra imagens na web. Verifique a licença antes de publicar. GIFs usam o primeiro quadro.");
+        explanation.setText("Google Imagens é a opção principal para personagens. A busca abaixo mostra imagens da Wikipedia/Commons. GIFs ficam estáticos. Confira os direitos de uso.");
         explanation.setTextSize(12);explanation.setTextColor(0xFFB1C3CE);
         body.addView(explanation,new LinearLayout.LayoutParams(-1,-2));
         LinearLayout form=new LinearLayout(activity);
@@ -119,18 +119,16 @@ final class OnlineImageSearch {
             chipLayout.rightMargin=dp(6);quick.addView(chip,chipLayout);
             chip.setOnClickListener(v->{query.setText(term);search(term);});
         }
-        TextView web=new TextView(activity);web.setText("WEB ↗");
+        TextView web=new TextView(activity);web.setText("GOOGLE ↗");
         web.setTextSize(12);web.setGravity(Gravity.CENTER);web.setTextColor(Color.WHITE);
         web.setBackground(bg(0xFF405575,dp(10)));
         quick.addView(web,new LinearLayout.LayoutParams(0,dp(37),1));
         web.setOnClickListener(v->{
-            String term=query.getText().toString().trim();
-            if(term.isEmpty())term="Mario character png";
-            try{
-                String url="https://www.google.com/search?tbm=isch&q="+URLEncoder.encode(term,"UTF-8");
-                activity.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(url)));
-                android.widget.Toast.makeText(activity,"Salve a imagem no navegador e importe pela galeria.",android.widget.Toast.LENGTH_LONG).show();
-            }catch(Exception e){status.setText("Não foi possível abrir o navegador.");}
+            String q=query.getText().toString().trim();
+            new GoogleImagePicker(activity,io).open(q,bitmap->{
+                if(dialog!=null&&dialog.isShowing())dialog.dismiss();
+                listener.onImage(bitmap,"Google Imagens");
+            });
         });
         body.addView(quick,new LinearLayout.LayoutParams(-1,dp(45)));
         loading=new ProgressBar(activity);
@@ -183,7 +181,7 @@ final class OnlineImageSearch {
                 loading.setVisibility(View.GONE);
                 results.clear();results.addAll(found);adapter.notifyDataSetChanged();
                 status.setText(found.isEmpty()?
-                    "Nenhuma imagem pública encontrada. Toque em WEB ↗ e importe pela galeria.":
+                    "Nenhuma imagem aqui. Use GOOGLE ↗ e tente segurar uma imagem para importar.":
                     found.size()+" resultados. Confira os direitos antes de publicar.");
             });
         });
