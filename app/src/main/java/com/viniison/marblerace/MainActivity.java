@@ -464,7 +464,7 @@ public class MainActivity extends Activity {
         pane.addView(message,new LinearLayout.LayoutParams(-1,dp(42)));
         ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
         bar.setMax(100);pane.addView(bar,new LinearLayout.LayoutParams(-1,dp(12)));
-        TextView advice=text("O vídeo é processado em tempo real. Mantenha o app aberto.",12,0xFF94ACB8,false);
+        TextView advice=text("Preparando GPU para exportar mais rápido. Mantenha o app aberto.",12,0xFF94ACB8,false);
         advice.setPadding(0,dp(16),0,0);
         pane.addView(advice);
         AlertDialog progressDialog=new AlertDialog.Builder(this).setTitle("EXPORTANDO SHORT")
@@ -473,12 +473,23 @@ public class MainActivity extends Activity {
         progressDialog.show();
         // Snapshot: racing changes after export do not modify the export.
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
+        final int exportTrack=selectedTrack,exportMode=selectedMode;
+        final long startedAt=SystemClock.elapsedRealtime();
         io.execute(()->{
             try{
-                Uri video=VideoExporter.export(this,snapshot,selectedTrack,selectedMode,pct->
-                    runOnUiThread(()->{if(!cancel.get()){
-                        bar.setProgress(pct);message.setText("Renderizando... "+pct+"%");
-                    }}),cancel);
+                Uri video=VideoExporter.export(this,snapshot,exportTrack,exportMode,
+                    new VideoExporter.Progress(){
+                        @Override public void update(int pct){
+                            runOnUiThread(()->{if(!cancel.get()){
+                                bar.setProgress(pct);
+                                long elapsed=(SystemClock.elapsedRealtime()-startedAt)/1000L;
+                                message.setText("Exportando... "+pct+"% • "+elapsed+"s");
+                            }});
+                        }
+                        @Override public void stage(String stage){
+                            runOnUiThread(()->{if(!cancel.get())advice.setText(stage);});
+                        }
+                    },cancel);
                 runOnUiThread(()->{
                     progressDialog.dismiss();
                     toast("Short salvo em Filmes/MarbleRace!");
