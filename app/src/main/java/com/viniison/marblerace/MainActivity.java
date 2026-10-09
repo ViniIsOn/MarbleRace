@@ -270,7 +270,7 @@ public class MainActivity extends Activity {
     }
     private void editRacer(RaceEngine.Racer racer) {
         String[] choices={"✎  Renomear","▣  Escolher imagem da galeria",
-            "⌕  Buscar PNG / GIF online","◯  Remover imagem","×  Excluir corredor"};
+            "⌕  Buscar PNG / GIF online","●  Escolher cor do rastro","◯  Remover imagem","×  Excluir corredor"};
         new AlertDialog.Builder(this)
             .setTitle("EDITAR • "+racer.name)
             .setItems(choices,(dlg,n)->{
@@ -280,8 +280,9 @@ public class MainActivity extends Activity {
                     case 2:new OnlineImageSearch(this,io).open((bitmap,title)->{
                         saveAvatarAsync(racer,bitmap);
                     });break;
-                    case 3:racer.avatar=null;racer.imagePath="";refresh();break;
-                    case 4:
+                    case 3:chooseColor(racer);break;
+                    case 4:racer.avatar=null;racer.imagePath="";refresh();break;
+                    case 5:
                         if(racers.size()<=2){toast("A corrida precisa de pelo menos 2 corredores.");return;}
                         new AlertDialog.Builder(this).setMessage("Remover "+racer.name+"?")
                         .setNegativeButton("Cancelar",null)
@@ -289,6 +290,18 @@ public class MainActivity extends Activity {
                         break;
                 }
             }).setNegativeButton("Voltar",null).show();
+    }
+    private void chooseColor(RaceEngine.Racer racer){
+        String[] colors={"CORAL","AZUL","LARANJA","LILÁS","MENTA","AMARELO","ROSA","BRANCO"};
+        int selected=0;
+        for(int i=0;i<RaceEngine.PALETTE.length;i++){
+            if(RaceEngine.PALETTE[i]==racer.color){selected=i;break;}
+        }
+        new AlertDialog.Builder(this).setTitle("COR DA BOLINHA E DO RASTRO")
+            .setSingleChoiceItems(colors,selected,(dialog,which)->{
+                racer.color=RaceEngine.PALETTE[which];
+                refresh();dialog.dismiss();
+            }).setNegativeButton("Cancelar",null).show();
     }
     private void rename(RaceEngine.Racer racer) {
         EditText edit=new EditText(this);edit.setSingleLine(true);
