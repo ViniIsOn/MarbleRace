@@ -92,7 +92,7 @@ public final class ModeEngine {
         running=false;
     }
     public void advance(float dt){
-        if(!running||orbs.size()<2||winner()!=null)return;
+        if(!running||orbs.size()<2||((mode==RING||mode==ELIMINATION||mode==CORE)&&winner()!=null))return;
         dt=clamp(dt,0,.04f);
         elapsed+=dt;
         if(!started())return;
