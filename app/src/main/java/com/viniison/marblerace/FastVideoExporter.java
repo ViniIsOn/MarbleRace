@@ -152,7 +152,7 @@ final class FastVideoExporter {
     private static void drain(MediaCodec codec,MediaMuxer muxer,Muxing state,
                               MediaCodec.BufferInfo info,boolean waitEnd)throws Exception{
         int empty=0;
-        do {
+        while(true) {
             int index=codec.dequeueOutputBuffer(info,waitEnd?10000:0);
             if(index==MediaCodec.INFO_TRY_AGAIN_LATER){
                 if(!waitEnd)break;
@@ -171,11 +171,10 @@ final class FastVideoExporter {
                 }
                 if((info.flags&MediaCodec.BUFFER_FLAG_END_OF_STREAM)!=0)state.eos=true;
                 codec.releaseOutputBuffer(index,false);
+                if(state.eos)break;
             }
-        }while(waitEnd&&!state.eos || !waitEnd && codecReady(codec,info));
+        }
     }
-    // During regular encoding drain only immediately available buffers; final EOS can block.
-    private static boolean codecReady(MediaCodec codec,MediaCodec.BufferInfo info){return false;}
 
     private static MediaCodec selectHardwareEncoder(MediaFormat format)throws Exception{
         Exception last=null;
