@@ -38,7 +38,16 @@ public final class ModeEngine {
     public final ArrayList<Orb> orbs=new ArrayList<>();
     public final int mode;
     public static final float INTRO_SECONDS=3f, TRANSITION_SECONDS=.65f;
+    public enum RingPhase { COUNTDOWN, TRANSITION, RACING, FINISHED }
     public final RaceEngine ringRace;
+    public RingPhase ringPhase(){
+        if(mode!=RING)return RingPhase.RACING;
+        if(ringRace!=null && !ringRace.balls.isEmpty() &&
+           ringRace.finished==ringRace.balls.size())return RingPhase.FINISHED;
+        if(elapsed<INTRO_SECONDS)return RingPhase.COUNTDOWN;
+        if(elapsed<INTRO_SECONDS+TRANSITION_SECONDS)return RingPhase.TRANSITION;
+        return RingPhase.RACING;
+    }
     public boolean running=false;
     public int finished=0;
     public float elapsed=0,coreLife=28;
@@ -110,7 +119,7 @@ public final class ModeEngine {
         if(mode==RING){
             // A closed circle introduces the competitors; it is NOT an elimination arena.
             // The 3-second countdown and 0.65-second handoff precede the obstacle course.
-            if(elapsed>=INTRO_SECONDS+TRANSITION_SECONDS && ringRace!=null){
+            if(ringPhase()==RingPhase.RACING && ringRace!=null){
                 if(ringRace.finished<ringRace.balls.size()){
                     ringRace.running=true;
                     ringRace.advance(dt);
