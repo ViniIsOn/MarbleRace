@@ -71,7 +71,7 @@ public class MainActivity extends Activity {
         mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
         music=new MusicLibrary(this);
         makeScreen();
-        music.onUpdate(()->{if(musicButton!=null)musicButton.setText("♫  "+music.label()+"   ▾");});
+        music.onUpdate(()->updateMusicButton());
     }
     private int dp(float d){return (int)(getResources().getDisplayMetrics().density*d+.5f);}
     private GradientDrawable shape(int color,int radius){
@@ -116,10 +116,10 @@ public class MainActivity extends Activity {
         sub.setLetterSpacing(.13f);
         brandText.addView(sub);
         brand.addView(brandText,new LinearLayout.LayoutParams(0,-2,1));
-        TextView noAds=text("SEM ADS",11,LIME,true);
+        TextView noAds=text("v1.4  •  SEM ADS",10,LIME,true);
         noAds.setGravity(Gravity.CENTER);
         noAds.setBackground(shape(0xFF223A32,12));
-        brand.addView(noAds,new LinearLayout.LayoutParams(dp(72),dp(31)));
+        brand.addView(noAds,new LinearLayout.LayoutParams(dp(112),dp(31)));
         root.addView(brand,new LinearLayout.LayoutParams(-1,dp(62)));
 
         FrameLayout frame=new FrameLayout(this);
@@ -163,14 +163,16 @@ public class MainActivity extends Activity {
         controls.addView(startButton,startp);
         startButton.setOnClickListener(v->{
             if(selectedMode==0){
-                if(race.finished>=race.balls.size() && !race.balls.isEmpty()) {
-                    race.reset();preview.renderer.resetCamera();
+                if(race.finished>=race.balls.size() && !race.balls.isEmpty()){
+                    race=new RaceEngine(racers,selectedTrack);
+                    preview.renderer.resetCamera();
                 }
                 race.toggle();
                 startButton.setText(race.running?"Ⅱ  PAUSAR":"▶  CONTINUAR");
             }else{
                 if(mini.winner()!=null || (mini.finished==mini.orbs.size()&&mini.finished>0)){
-                    mini.reset();preview.modeRenderer.resetCamera();
+                    mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+                    preview.modeRenderer.resetCamera();
                 }
                 mini.toggle();
                 startButton.setText(mini.running?"Ⅱ  PAUSAR":"▶  CONTINUAR");
@@ -183,7 +185,9 @@ public class MainActivity extends Activity {
         resetp.leftMargin=dp(6);
         controls.addView(reset,resetp);
         reset.setOnClickListener(v->{
-            race.reset();mini.reset();music.stop();
+            race=new RaceEngine(racers,selectedTrack);
+            mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+            music.stop();
             preview.renderer.resetCamera();preview.modeRenderer.resetCamera();
             startButton.setText("▶  INICIAR");preview.invalidate();
         });
@@ -197,8 +201,10 @@ public class MainActivity extends Activity {
         });
         root.addView(controls,new LinearLayout.LayoutParams(-1,dp(49)));
 
-        musicButton=button("♫  "+music.label()+"   ▾",false);
-        musicButton.setTextColor(0xFFF4D485);
+        musicButton=button("♫  ADICIONAR MÚSICA   ▾",true);
+        musicButton.setBackground(shape(0xFFF2D987,14));
+        musicButton.setTextColor(0xFF1B2229);
+        updateMusicButton();
         LinearLayout.LayoutParams musicParams=new LinearLayout.LayoutParams(-1,dp(43));
         musicParams.topMargin=dp(7);
         root.addView(musicButton,musicParams);
@@ -231,27 +237,45 @@ public class MainActivity extends Activity {
         root.addView(export,exp);
         export.setOnClickListener(v->exportVideo());
 
-        TextView foot=text("720 × 1280 • 30 FPS • M4A/AAC NO MP4 • ATÉ 45 S",10,0xFF859BA7,true);
+        TextView foot=text("v1.4 • MP4 9:16 • 30 FPS • TRILHA M4A/AAC",10,0xFF859BA7,true);
         foot.setLetterSpacing(.065f);foot.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(25));root.addView(foot,fp);
+    }
+    private void updateMusicButton(){
+        if(musicButton==null || music==null)return;
+        musicButton.setText(music.hasTrack()?
+            "♫  "+music.label()+"   •  ALTERAR ▾":
+            "♫  SEM MÚSICA  •  TOQUE PARA ADICIONAR ▾");
     }
     private class RaceView extends View {
         final RaceRenderer renderer=new RaceRenderer();
         final ModeRenderer modeRenderer=new ModeRenderer();
         long last=System.nanoTime();
+        float accumulator=0f;
         RaceView(){super(MainActivity.this);setLayerType(View.LAYER_TYPE_HARDWARE,null);}
         @Override protected void onDraw(Canvas canvas){
             super.onDraw(canvas);
             long now=System.nanoTime();
-            float dt=Math.min(.035f,(now-last)/1000000000f);
+            float dt=Math.min(.12f,Math.max(0,(now-last)/1000000000f));
             last=now;
+            boolean playing=selectedMode==0?race!=null&&race.running:mini!=null&&mini.running;
+            // The app and MP4 use the exact same fixed 30 Hz steps.
+            if(playing){
+                accumulator+=dt*speed;
+                int steps=0;
+                while(accumulator>=1f/30f && steps<6){
+                    if(selectedMode==0)race.advance(1f/30f);
+                    else mini.advance(1f/30f);
+                    accumulator-=1f/30f;
+                    steps++;
+                }
+                if(steps>=6)accumulator=0;
+            }else accumulator=0;
             if(selectedMode==0){
-                if(race!=null)race.advance(dt*speed);
                 if(race!=null)renderer.render(canvas,race,false);
                 if(race!=null && !race.running && race.finished==race.balls.size() && race.finished>0 && startButton!=null)
                     startButton.setText("▶  NOVA CORRIDA");
             }else{
-                if(mini!=null)mini.advance(dt*speed);
                 if(mini!=null)modeRenderer.render(canvas,mini,false);
                 if(mini!=null && !mini.running && mini.winner()!=null && startButton!=null)
                     startButton.setText("▶  NOVA DISPUTA");
@@ -494,11 +518,13 @@ public class MainActivity extends Activity {
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
         final int exportTrack=selectedTrack,exportMode=selectedMode;
         final String exportMusic=music.selectedUri();
+        // Preserve this particular race for consistent exports (same winner and map).
+        final long exportSeed=exportMode==0?race.seed:mini.seed;
         final String[] audioWarning={null};
         final long startedAt=SystemClock.elapsedRealtime();
         io.execute(()->{
             try{
-                Uri video=VideoExporter.export(this,snapshot,exportTrack,exportMode,exportMusic,
+                Uri video=VideoExporter.export(this,snapshot,exportTrack,exportMode,exportSeed,exportMusic,
                     new VideoExporter.Progress(){
                         @Override public void update(int pct){
                             runOnUiThread(()->{if(!cancel.get()){
