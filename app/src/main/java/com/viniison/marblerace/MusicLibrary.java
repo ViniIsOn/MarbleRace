@@ -134,8 +134,8 @@ final class MusicLibrary {
         options.add("✕ Esvaziar biblioteca (não apaga arquivos)");
         String[] items=options.toArray(new String[0]);
         new AlertDialog.Builder(activity)
-            .setTitle("BIBLIOTECA DE MÚSICAS")
-            .setMessage("Escolha arquivos locais que você tem permissão de usar. Reprodução no app: MP3/M4A. Para áudio no MP4: preferencialmente M4A/AAC. Nenhuma música vem instalada.")
+            .setTitle("BIBLIOTECA • MP3 / M4A")
+            // setMessage together with setItems hides the list on some Android themes.
             .setItems(items,(dialog,which)->{
                 if(which==0){launchPicker();return;}
                 if(which==1){
