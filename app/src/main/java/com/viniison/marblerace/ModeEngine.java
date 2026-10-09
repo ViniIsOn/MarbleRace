@@ -10,10 +10,10 @@ import java.util.Random;
  */
 public final class ModeEngine {
     public static final String[] NAMES={
-        "ANEL DE BOLINHAS","ELIMINAÇÃO","DESTRUIR O NÚCLEO","CORRIDA DE MINHOCAS","BICICLETAS"
+        "CORRIDA DO ARO","ELIMINAÇÃO","DESTRUIR O NÚCLEO","CORRIDA DE MINHOCAS","BICICLETAS"
     };
     public static final String[] DESCRIPTIONS={
-        "Um aro circular e uma saída giratória",
+        "Contagem no aro, depois pista com obstáculos e chegada",
         "A arena encolhe até sobrar um vencedor",
         "Acertar o núcleo central dá pontos",
         "Minhocas coloridas disputam uma pista",
@@ -37,6 +37,8 @@ public final class ModeEngine {
     }
     public final ArrayList<Orb> orbs=new ArrayList<>();
     public final int mode;
+    public static final float INTRO_SECONDS=3f, TRANSITION_SECONDS=.65f;
+    public final RaceEngine ringRace;
     public boolean running=false;
     public int finished=0;
     public float elapsed=0,coreLife=28;
@@ -44,6 +46,7 @@ public final class ModeEngine {
     public ModeEngine(List<RaceEngine.Racer> racers,int mode){
         this.mode=Math.max(0,Math.min(NAMES.length-1,mode));
         for(RaceEngine.Racer racer:racers)orbs.add(new Orb(racer));
+        ringRace=this.mode==RING?new RaceEngine(racers,0):null;
         random=new Random(889+this.mode*31L);
         reset();
     }
@@ -53,11 +56,19 @@ public final class ModeEngine {
     public void reset(){
         random.setSeed(889+mode*31L);
         elapsed=0;running=false;finished=0;coreLife=28;
+        if(ringRace!=null)ringRace.reset();
         for(int i=0;i<orbs.size();i++){
             Orb b=orbs.get(i);
             b.place=0;b.out=false;b.score=0;b.hits=0;b.jumpTime=0;b.trailN=0;b.trailIndex=0;
             float angle=(float)(i*2*Math.PI/Math.max(1,orbs.size()));
-            if(mode==WORMS){
+            if(mode==RING){
+                // Racers gather at the bottom of the closed starting ring.
+                int row=i/4,position=i%4;
+                int count=Math.min(4,orbs.size()-row*4);
+                b.x=CX+(position-(count-1)/2f)*105;
+                b.y=CY+236-row*104;
+                b.vx=0;b.vy=0;
+            }else if(mode==WORMS){
                 b.x=180+(i%4)*225;b.y=180+(i/4)*96;
                 b.vx=0;b.vy=210+i*16;
             }else if(mode==BIKES){
@@ -96,6 +107,19 @@ public final class ModeEngine {
         if(!running||orbs.size()<2||((mode==RING||mode==ELIMINATION||mode==CORE)&&winner()!=null))return;
         dt=clamp(dt,0,.04f);
         elapsed+=dt;
+        if(mode==RING){
+            // A closed circle introduces the competitors; it is NOT an elimination arena.
+            // The 3-second countdown and 0.65-second handoff precede the obstacle course.
+            if(elapsed>=INTRO_SECONDS+TRANSITION_SECONDS && ringRace!=null){
+                if(ringRace.finished<ringRace.balls.size()){
+                    ringRace.running=true;
+                    ringRace.advance(dt);
+                }
+                finished=ringRace.finished;
+                if(finished==ringRace.balls.size() && finished>0)running=false;
+            }
+            return;
+        }
         if(!started())return;
         float step=elapsed-3;
         if(mode==WORMS){
@@ -229,10 +253,19 @@ public final class ModeEngine {
         }
     }
     public Orb winner(){
+        if(mode==RING){
+            if(ringRace==null || ringRace.finished<ringRace.balls.size() || ringRace.balls.isEmpty())
+                return null;
+            RaceEngine.Ball first=ringRace.winner();
+            if(first==null)return null;
+            for(Orb orb:orbs)if(orb.racer==first.racer)return orb;
+            return null;
+        }
         for(Orb b:orbs)if(b.place==1)return b;
         return null;
     }
     public float progress(){
+        if(mode==RING && ringRace!=null)return ringRace.leadY();
         float p=0;
         for(Orb b:orbs)p=Math.max(p,mode==BIKES?b.x:b.y);
         return p;
