@@ -8,152 +8,236 @@ import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import java.util.List;
 import java.util.Locale;
 
+/** High-contrast clean race graphics with distinct track identities. */
 public final class RaceRenderer {
     private final Paint p=new Paint(3);
     private final Path path=new Path();
-    private final RectF rect=new RectF();
-    private static final int BG=0xFF090E15;
-    private static final int TRACK=0xFF202F3B;
-    private static final int LIME=0xFFC6F47A;
     private float camera=0;
+    private static final int[] SKY={0xFF81D8F9,0xFFFFE7A2,0xFF131E3A,0xFFEB754B};
+    private static final int[] GROUND={0xFFB9F1F5,0xFFFFD3E8,0xFF1A254B,0xFFF5B75C};
+    private static final int[] ROAD={0xFFEFFDFD,0xFFFFF2BD,0xFF27334E,0xFF4D1F27};
+    private static final int[] EDGES={0xFF358CBD,0xFFEC6F9F,0xFF58FFF2,0xFFFFBA5E};
+    private static final int[] PINS={0xFFFE6781,0xFF8B63DD,0xFF73FBEE,0xFFF9D779};
+    private static final int[] DARK={0xFF15364A,0xFF52334D,0xFF102039,0xFF522B25};
 
     public void resetCamera(){camera=0;}
-    private void fill(Canvas c,int color,float l,float t,float r,float b,float radius){
-        p.reset();p.setAntiAlias(true);p.setColor(color);p.setStyle(Paint.Style.FILL);
-        c.drawRoundRect(l,t,r,b,radius,radius,p);
+    private void fill(Canvas c,int color,float x1,float y1,float x2,float y2,float rad){
+        p.reset();p.setAntiAlias(true);p.setColor(color);
+        c.drawRoundRect(x1,y1,x2,y2,rad,rad,p);
     }
-    private void line(Canvas c,int color,float w,float x1,float y1,float x2,float y2){
-        p.reset();p.setAntiAlias(true);p.setStrokeWidth(w);p.setColor(color);p.setStrokeCap(Paint.Cap.ROUND);
-        c.drawLine(x1,y1,x2,y2,p);
+    private void circle(Canvas c,int color,float x,float y,float rad){
+        p.reset();p.setAntiAlias(true);p.setColor(color);c.drawCircle(x,y,rad,p);
     }
-    private void txt(Canvas c,String s,float x,float y,int size,int color,boolean bold){
+    private void stroke(Canvas c,int color,float width,float x1,float y1,float x2,float y2){
+        p.reset();p.setAntiAlias(true);p.setColor(color);p.setStrokeWidth(width);
+        p.setStrokeCap(Paint.Cap.ROUND);c.drawLine(x1,y1,x2,y2,p);
+    }
+    private void label(Canvas c,String content,float x,float y,float size,int color,boolean bold){
         p.reset();p.setAntiAlias(true);p.setColor(color);p.setTextSize(size);
-        p.setTypeface(Typeface.create(bold?"sans-serif-condensed":"sans-serif",bold?Typeface.BOLD:Typeface.NORMAL));
-        c.drawText(s,x,y,p);
+        p.setTypeface(Typeface.create(bold?"sans-serif-condensed":"sans-serif",
+            bold?Typeface.BOLD:Typeface.NORMAL));
+        c.drawText(content,x,y,p);
     }
-    private String clipped(String s,int len){return s.length()>len?s.substring(0,len-1)+"…":s;}
-    public void render(Canvas original,RaceEngine engine,boolean export) {
-        if(original.getWidth()<=0||original.getHeight()<=0)return;
-        float scale=original.getWidth()/1080f;
-        float h=original.getHeight()/scale;
+    private String clip(String s,int n){return s.length()>n?s.substring(0,n-1)+"…":s;}
+    private int alpha(int c,int a){return (c&0x00FFFFFF)|((Math.max(0,Math.min(255,a)))<<24);}
+    public void render(Canvas original,RaceEngine engine,boolean export){
+        if(original.getWidth()<1||original.getHeight()<1)return;
         original.save();
-        original.scale(scale,scale);
+        float factor=original.getWidth()/1080f;
+        original.scale(factor,factor);
         Canvas c=original;
-        c.drawColor(BG);
+        float h=original.getHeight()/factor;
+        int t=engine.track;
         p.reset();p.setAntiAlias(true);
-        p.setColor(0xFF162330);p.setStrokeWidth(2);
-        for(int x=0;x<1080;x+=90)c.drawLine(x,0,x,h,p);
-        for(int y=0;y<h;y+=90)c.drawLine(0,y,1080,y,p);
-        float desired=Math.max(0,engine.leadY()-h*.45f);
-        camera+=(desired-camera)*Math.min(1,export?.09f:.16f);
-        if(engine.elapsed<.05f)camera=0;
-        // World space scrolls; HUD stays fixed.
+        p.setShader(new LinearGradient(0,0,0,h,SKY[t],GROUND[t],Shader.TileMode.CLAMP));
+        c.drawRect(0,0,1080,h,p);p.setShader(null);
+        float target=Math.max(0,engine.leadY()-h*.47f);
+        camera+=(target-camera)*(export?.13f:.17f);
+        if(engine.elapsed<.04f)camera=0;
         c.save();c.translate(0,-camera);
-        float start=Math.max(0,camera-200);
-        float end=Math.min(RaceEngine.FINISH_Y+500,camera+h+200);
-        path.reset();
-        for(float y=start;y<=end+24;y+=24) {
-            float x=RaceEngine.centerAt(y)-370;
-            if(y==start)path.moveTo(x,y);else path.lineTo(x,y);
-        }
-        for(float y=end+24;y>=start;y-=24)path.lineTo(RaceEngine.centerAt(y)+370,y);
-        path.close();
-        p.reset();p.setAntiAlias(true);p.setColor(TRACK);c.drawPath(path,p);
-        // Subtle lane dots and boundary lights.
-        for(int side=-1;side<=1;side+=2){
-            path.reset();
-            for(float y=start;y<=end+24;y+=24){
-                float x=RaceEngine.centerAt(y)+side*355;
-                if(y==start)path.moveTo(x,y);else path.lineTo(x,y);
+        float top=Math.max(0,camera-300),bottom=Math.min(RaceEngine.FINISH_Y+450,camera+h+300);
+        decorate(c,t,top,bottom,engine.elapsed);
+        // Thick outer rail and thin inner line, fewer interface effects.
+        trackShape(engine,top,bottom);
+        p.reset();p.setAntiAlias(true);p.setColor(alpha(DARK[t],90));
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(45);
+        c.drawPath(path,p);
+        p.setStyle(Paint.Style.FILL);p.setColor(ROAD[t]);c.drawPath(path,p);
+        trackLines(c,engine,t,top,bottom);
+        for(float y=650;y<RaceEngine.FINISH_Y;y+=940){
+            if(y<top-80||y>bottom+80)continue;
+            float cx=engine.centerAt(y);
+            fill(c,alpha(EDGES[t],170),cx-320,y-26,cx+320,y+34,11);
+            for(int i=0;i<7;i++) {
+                float x=cx-288+i*92;
+                stroke(c,alpha(Color.WHITE,200),11,x,y-5,x+23,y+14);
             }
-            p.reset();p.setAntiAlias(true);p.setStyle(Paint.Style.STROKE);
-            p.setColor(0xFF92AD91);p.setStrokeWidth(8);c.drawPath(path,p);
         }
-        for(float y=(float)Math.floor(start/160)*160;y<=end;y+=160) {
-            float x=RaceEngine.centerAt(y);
-            fill(c,0xFF43555F,x-5,y+20,x+5,y+76,5);
-            line(c,0xFF4B6069,3,x-270,y,x-250,y);
-            line(c,0xFF4B6069,3,x+250,y,x+270,y);
+        for(RaceEngine.Bumper b:engine.bumpers){
+            if(b.y<top-110||b.y>bottom+110)continue;
+            float x=engine.obstacleX(b);
+            circle(c,alpha(DARK[t],90),x+7,b.y+10,b.r+15);
+            circle(c,EDGES[t],x,b.y,b.r+7);
+            circle(c,b.type==1?DARK[t]:PINS[t],x,b.y,b.r);
+            if(b.type==1){
+                // Rotating hazard with visible spokes.
+                for(int a=0;a<4;a++){
+                    double ang=engine.elapsed*3+b.phase+a*Math.PI/2;
+                    float px=x+(float)Math.cos(ang)*b.r*.74f;
+                    float py=b.y+(float)Math.sin(ang)*b.r*.74f;
+                    stroke(c,PINS[t],9,x,b.y,px,py);
+                }
+                circle(c,Color.WHITE,x,b.y,9);
+            }else{
+                circle(c,alpha(Color.WHITE,195),x-b.r*.28f,b.y-b.r*.28f,Math.max(5,b.r*.18f));
+            }
         }
-        for(RaceEngine.Bumper b:engine.bumpers) {
-            if(b.y<start-100 || b.y>end+100)continue;
-            p.reset();p.setAntiAlias(true);p.setColor(0x55000000);
-            c.drawCircle(b.x+6,b.y+9,b.r+11,p);
-            p.setColor(0xFF96DDE2);c.drawCircle(b.x,b.y,b.r+7,p);
-            p.setColor(0xFF345D6A);c.drawCircle(b.x,b.y,b.r,p);
-            p.setColor(0xFFB6EAF1);c.drawCircle(b.x-8,b.y-8,Math.max(3,b.r*.2f),p);
-        }
-        // Finish arch and checkered flag.
         float fy=RaceEngine.FINISH_Y;
-        if(fy>=start-100 && fy<=end+100) {
-            float cx=RaceEngine.centerAt(fy);
-            fill(c,LIME,cx-372,fy-12,cx+372,fy+14,4);
-            for(int i=0;i<12;i++)if(i%2==0)fill(c,BG,cx-360+i*60,fy-10,cx-300+i*60,fy+12,2);
-            txt(c,"CHEGADA",cx-134,fy-40,44,Color.WHITE,true);
+        if(fy>=top-90&&fy<=bottom+90){
+            float cx=engine.centerAt(fy);
+            fill(c,DARK[t],cx-356,fy-22,cx+356,fy+26,3);
+            for(int i=0;i<16;i++)if((i&1)==0)
+                fill(c,Color.WHITE,cx-350+i*44,fy-19,cx-306+i*44,fy+23,1);
+            label(c,"FINISH",cx-110,fy-64,52,DARK[t],true);
         }
-        for(RaceEngine.Ball b:engine.balls)if(b.y>=start-100 && b.y<=end+100)drawBall(c,b);
+        for(RaceEngine.Ball b:engine.balls)drawTrail(c,b,top,bottom);
+        for(RaceEngine.Ball b:engine.balls)if(b.y>=top-70&&b.y<=bottom+70)drawBall(c,b);
         c.restore();
-        // Top glass HUD
-        fill(c,0xEE101922,22,22,1058,155,26);
-        txt(c,"MARBLE / RACE",52,79,42,Color.WHITE,true);
-        txt(c,"STUDIO    •    VERTICAL 9:16",55,116,21,0xFF9BAFB9,false);
-        fill(c,0xFF2A423B,806,53,1029,114,30);
-        String t=String.format(Locale.US,"%02d:%02d",(int)engine.elapsed/60,(int)engine.elapsed%60);
-        txt(c,t,864,95,36,LIME,true);
-        fill(c,0xD9101922,24,h-207,1056,h-25,25);
-        List<RaceEngine.Ball> rank=engine.ranked();
-        txt(c,"CLASSIFICAÇÃO",55,h-160,24,0xFFADC0C6,true);
-        int visible=Math.min(3,rank.size());
-        for(int i=0;i<visible;i++){
-            RaceEngine.Ball b=rank.get(i);
-            int x=58+i*335;
-            fill(c,0xFF2C3942,x-5,h-137,x+309,h-55,13);
-            txt(c,String.format(Locale.US,"%02d",i+1),x+12,h-86,37,LIME,true);
-            p.reset();p.setAntiAlias(true);p.setColor(b.racer.color);c.drawCircle(x+90,h-96,24,p);
-            txt(c,clipped(b.racer.name,9),x+125,h-85,27,Color.WHITE,true);
-        }
-        float progress=Math.max(0,Math.min(1,engine.leadY()/RaceEngine.FINISH_Y));
-        fill(c,0xFF34434B,40,h-29,1040,h-20,5);
-        fill(c,LIME,40,h-29,40+progress*1000,h-20,5);
-        if(engine.winner()!=null) {
-            fill(c,0xF20B1117,100,h*.37f,980,h*.59f,36);
-            txt(c,"1º LUGAR",370,h*.44f,65,LIME,true);
-            txt(c,clipped(engine.winner().racer.name,17),290,h*.51f,67,Color.WHITE,true);
-        }else if(!engine.running && engine.elapsed==0) {
-            fill(c,0xCC101922,155,h*.43f,925,h*.53f,28);
-            txt(c,"PRONTOS PARA CORRER?",250,h*.48f,50,Color.WHITE,true);
-        }
+        drawHud(c,engine,h);
         original.restore();
     }
+    private void trackShape(RaceEngine engine,float top,float bottom){
+        path.reset();
+        for(float y=top;y<=bottom+20;y+=20){
+            float x=engine.centerAt(y)-370;
+            if(y==top)path.moveTo(x,y);else path.lineTo(x,y);
+        }
+        for(float y=bottom+20;y>=top;y-=20){
+            path.lineTo(engine.centerAt(y)+370,y);
+        }
+        path.close();
+    }
+    private void decorate(Canvas c,int t,float top,float bottom,float time){
+        for(float y=(float)Math.floor(top/340)*340;y<bottom+340;y+=340){
+            float offset=(float)Math.sin(y*.018f)*44;
+            float x1=140+offset,x2=930-offset;
+            if(t==0){
+                cloud(c,x1,y+84,.95f);cloud(c,x2,y+250,.73f);
+            }else if(t==1){
+                circle(c,0x99FFFFFF,x1,y+90,47);
+                circle(c,0xBFFF91BE,x1+10,y+76,21);
+                circle(c,0xBFFFFFFF,x2,y+222,35);
+                stroke(c,0xAAFE7FA7,10,x2-21,y+198,x2+19,y+240);
+            }else if(t==2){
+                circle(c,0x554CFFEF,x1,y+160,8);
+                circle(c,0xA752C9FF,x2,y+72,13);
+                stroke(c,0x555CDAF9,3,x1-25,y+85,x1+20,y+38);
+                stroke(c,0x555CDAF9,3,x2-20,y+168,x2+20,y+208);
+            }else{
+                circle(c,0x99FFD273,x1,y+120,18);
+                circle(c,0x88FF733E,x2,y+190,33);
+                stroke(c,0x88FFE48C,7,x1-18,y+220,x1+42,y+242);
+            }
+        }
+    }
+    private void cloud(Canvas c,float x,float y,float sc){
+        circle(c,0xBBFFFFFF,x,y,47*sc);
+        circle(c,0xBBFFFFFF,x-45*sc,y+8*sc,33*sc);
+        circle(c,0xBBFFFFFF,x+43*sc,y+9*sc,37*sc);
+    }
+    private void trackLines(Canvas c,RaceEngine engine,int t,float top,float bottom){
+        for(int side=-1;side<=1;side+=2){
+            path.reset();
+            for(float y=top;y<=bottom+30;y+=20){
+                float x=engine.centerAt(y)+side*349;
+                if(y==top)path.moveTo(x,y);else path.lineTo(x,y);
+            }
+            p.reset();p.setAntiAlias(true);p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(11);p.setColor(EDGES[t]);c.drawPath(path,p);
+        }
+        for(float y=(float)Math.floor(top/180)*180;y<=bottom;y+=180){
+            float cx=engine.centerAt(y);
+            fill(c,alpha(EDGES[t],75),cx-5,y+18,cx+5,y+90,5);
+            circle(c,alpha(EDGES[t],170),cx-330,y+58,9);
+            circle(c,alpha(EDGES[t],170),cx+330,y+58,9);
+        }
+    }
+    private void drawTrail(Canvas c,RaceEngine.Ball b,float top,float bottom){
+        if(b.trailCount<2)return;
+        for(int i=0;i<b.trailCount;i++){
+            int index=(b.trailCursor-b.trailCount+i+RaceEngine.TRAIL_SAMPLES)%RaceEngine.TRAIL_SAMPLES;
+            float x=b.trailX[index],y=b.trailY[index];
+            if(y<top-50||y>bottom+50)continue;
+            float ratio=(i+1)/(float)b.trailCount;
+            int a=(int)(ratio*150f);
+            circle(c,alpha(b.racer.color,a),x,y,7+ratio*26);
+            if(i%3==0)circle(c,alpha(Color.WHITE,(int)(ratio*75f)),x-5,y-5,2+ratio*4);
+        }
+    }
     private void drawBall(Canvas c,RaceEngine.Ball b){
-        final float r=RaceEngine.BALL_R;
-        p.reset();p.setAntiAlias(true);p.setColor(0x77000000);
-        c.drawCircle(b.x+5,b.y+8,r+7,p);
-        p.setColor(0xFFFFFFFF);c.drawCircle(b.x,b.y,r+5,p);
-        p.setColor(b.racer.color);c.drawCircle(b.x,b.y,r,p);
-        Bitmap img=b.racer.avatar;
-        if(img!=null && !img.isRecycled() && img.getWidth()>0 && img.getHeight()>0){
-            BitmapShader sh=new BitmapShader(img,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP);
-            Matrix m=new Matrix();
-            float sc=Math.max(2*r/img.getWidth(),2*r/img.getHeight());
-            m.setScale(sc,sc);
-            m.postTranslate(b.x-img.getWidth()*sc*.5f,b.y-img.getHeight()*sc*.5f);
-            sh.setLocalMatrix(m);
-            p.setShader(sh);c.drawCircle(b.x,b.y,r-3,p);
-            p.setShader(null);
+        float r=RaceEngine.BALL_R;
+        circle(c,0x50000000,b.x+4,b.y+7,r+7);
+        circle(c,Color.WHITE,b.x,b.y,r+4);
+        circle(c,b.racer.color,b.x,b.y,r);
+        Bitmap avatar=b.racer.avatar;
+        if(avatar!=null&&!avatar.isRecycled()&&avatar.getWidth()>0&&avatar.getHeight()>0){
+            BitmapShader shader=new BitmapShader(avatar,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP);
+            Matrix transform=new Matrix();
+            float scale=Math.max(2*r/avatar.getWidth(),2*r/avatar.getHeight());
+            transform.setScale(scale,scale);
+            transform.postTranslate(b.x-avatar.getWidth()*scale*.5f,b.y-avatar.getHeight()*scale*.5f);
+            shader.setLocalMatrix(transform);
+            p.reset();p.setAntiAlias(true);p.setShader(shader);
+            c.drawCircle(b.x,b.y,r-3,p);p.setShader(null);
         }else{
             String n=b.racer.name.trim();
-            String letter=n.isEmpty()?"?":n.substring(0,1).toUpperCase(Locale.ROOT);
-            p.setColor(0xFF14212A);p.setTextSize(40);p.setTypeface(Typeface.DEFAULT_BOLD);
-            float width=p.measureText(letter);
-            c.drawText(letter,b.x-width/2,b.y+14,p);
+            String first=n.isEmpty()?"?":n.substring(0,1).toUpperCase(Locale.ROOT);
+            p.reset();p.setAntiAlias(true);p.setColor(DARK[0]);
+            p.setTextSize(39);p.setTypeface(Typeface.DEFAULT_BOLD);
+            c.drawText(first,b.x-p.measureText(first)/2,b.y+14,p);
         }
-        p.setColor(0x77FFFFFF);c.drawCircle(b.x-14,b.y-16,9,p);
+        circle(c,0x99FFFFFF,b.x-16,b.y-17,8);
+    }
+    private void drawHud(Canvas c,RaceEngine engine,float h){
+        int t=engine.track;
+        int dark=DARK[t];
+        // Minimal broadcast-style overlays, readable over every theme.
+        fill(c,0xF7FFFFFF,22,20,1058,142,19);
+        fill(c,EDGES[t],22,20,37,142,5);
+        label(c,"MARBLE RACE",56,72,40,0xFF1D2634,true);
+        label(c,"TRACK "+String.format(Locale.US,"%02d",t+1)+"  /  "+RaceEngine.TRACK_NAMES[t],58,112,25,0xFF51606A,true);
+        String stamp=String.format(Locale.US,"%02d:%02d",(int)engine.elapsed/60,(int)engine.elapsed%60);
+        fill(c,0xFF1D2634,838,49,1024,117,15);
+        label(c,stamp,882,99,36,Color.WHITE,true);
+        float base=h-194;
+        fill(c,0xF9FFFFFF,22,base,1058,h-26,18);
+        label(c,"LEADERBOARD",48,base+39,21,0xFF566676,true);
+        List<RaceEngine.Ball> top=engine.ranked();
+        for(int i=0;i<Math.min(3,top.size());i++){
+            RaceEngine.Ball b=top.get(i);
+            int x=51+i*340;
+            fill(c,i==0?0xFFE5EEF2:0xFFEDF1F4,x,base+52,x+321,base+130,12);
+            fill(c,b.racer.color,x,base+52,x+8,base+130,3);
+            label(c,""+(i+1),x+20,base+105,42,0xFF1E2D3B,true);
+            circle(c,b.racer.color,x+99,base+93,22);
+            label(c,clip(b.racer.name,9),x+132,base+102,25,0xFF1F3040,true);
+        }
+        fill(c,0xFFCDD8DB,45,h-39,1035,h-30,4);
+        float progress=Math.max(0,Math.min(1,engine.leadY()/RaceEngine.FINISH_Y));
+        fill(c,EDGES[t],45,h-39,45+990*progress,h-30,4);
+        RaceEngine.Ball winner=engine.winner();
+        if(winner!=null){
+            fill(c,0xF8FFFFFF,135,h*.37f,945,h*.57f,23);
+            label(c,"WINNER",403,h*.44f,58,dark,true);
+            label(c,clip(winner.racer.name,15),295,h*.50f,59,dark,true);
+        }else if(!engine.running&&engine.elapsed==0){
+            fill(c,0xEFFFFFFF,133,h*.42f,947,h*.53f,24);
+            label(c,"READY TO RACE",295,h*.485f,53,dark,true);
+        }
     }
 }
