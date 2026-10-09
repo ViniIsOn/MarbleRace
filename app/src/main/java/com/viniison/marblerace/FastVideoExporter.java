@@ -195,7 +195,7 @@ final class FastVideoExporter {
         }
         throw new IllegalStateException("Não há encoder H.264 acelerado com entrada Surface",last);
     }
-    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,
+    static Uri export(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,long seed,
                       VideoExporter.Progress progress,AtomicBoolean cancel)throws Exception{
         if(Build.VERSION.SDK_INT<29)throw new IllegalStateException("Exportação acelerada requer Android 10+");
         progress.stage("Aceleração por GPU e codificador H.264");
@@ -230,8 +230,8 @@ final class FastVideoExporter {
             descriptor=resolver.openFileDescriptor(uri,"rw");
             if(descriptor==null)throw new IllegalStateException("Sem acesso ao arquivo MP4");
             muxer=new MediaMuxer(descriptor.getFileDescriptor(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-            RaceEngine race=mode==0?new RaceEngine(racers,track):null;
-            ModeEngine mini=mode==0?null:new ModeEngine(racers,mode-1);
+            RaceEngine race=mode==0?new RaceEngine(racers,track,seed):null;
+            ModeEngine mini=mode==0?null:new ModeEngine(racers,mode-1,seed);
             RaceRenderer renderer=new RaceRenderer();
             ModeRenderer modeRenderer=new ModeRenderer();
             if(race!=null)race.running=true;
