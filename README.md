@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.2 beta 🎱
+# MarbleLab Studio — v1.2.1 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -6,7 +6,7 @@ Jogo original de competições animadas no Android, sem SDK de anúncios, feito 
 
 | Modo | Descrição |
 |---|---|
-| Anel de Bolinhas | Aro circular preto, céu azul, bolas coloridas, contagem regressiva e saída que gira. |
+| Corrida do Aro | Aro preto **fechado** só na preparação: 3, 2, 1 → GO! → círculo desaparece → corrida em pista azul com paredes pretas e obstáculos → linha de chegada e pódio. |
 | Eliminação | Arena circular diminui progressivamente, até haver um vencedor. |
 | Destruir o Núcleo | Bolinhas rebatem num núcleo central; vence quem acerta mais. |
 | Corrida de Minhocas | Competidores com corpos de bolinhas cruzam uma pista em velocidade. |
@@ -28,7 +28,7 @@ A interface do Google pode restringir o uso em navegador embutido; por isso o fl
 
 ## Vídeos e APK
 
-- Exportação MP4 vertical: 720 × 1280, 30 FPS, sem áudio. Adicione música no editor.
+- Exportação MP4 vertical: 720 × 1280, 30 FPS, sem áudio. A Corrida do Aro exporta **a introdução e a corrida completa**, além de manter o pódio por 1,5 segundo. Adicione música no editor.
 - Abre em Android 8+, mas exportação MP4 interna requer Android 10+.
 - A versão é **beta**; compatibilidade da exportação depende do codificador H.264 do aparelho.
 - Para instalar pelo celular: abra [GitHub Actions](https://github.com/ViniIsOn/MarbleRace/actions), escolha a compilação verde **Build Android APK**, baixe o artefato `MarbleRace-debug-APK`, extraia o ZIP e instale `app-debug.apk`.
