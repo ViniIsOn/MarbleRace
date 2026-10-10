@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.util.Base64;
+import android.util.AtomicFile;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
@@ -58,6 +59,30 @@ final class RacerBackup {
         }
         root.put("racers",list);
         return root;
+    }
+    /** Automatic private recovery snapshot, saved after editing a character.
+     *  Survives updates. User-exported backup is required before uninstalling.
+     */
+    static void autoSave(Context ctx,List<RaceEngine.Racer> racers,int mode,int track)throws Exception{
+        AtomicFile store=new AtomicFile(new File(ctx.getFilesDir(),"creator_autosave.json"));
+        byte[] bytes=encode(racers,mode,track).toString().getBytes(StandardCharsets.UTF_8);
+        if(bytes.length>MAX_BYTES)throw new Exception("Snapshot grande demais");
+        FileOutputStream out=null;
+        try{
+            out=store.startWrite();
+            out.write(bytes);
+            store.finishWrite(out);
+        }catch(Exception problem){
+            if(out!=null)store.failWrite(out);
+            throw problem;
+        }
+    }
+    static Loaded autoRestore(Context ctx)throws Exception{
+        AtomicFile store=new AtomicFile(new File(ctx.getFilesDir(),"creator_autosave.json"));
+        if(!store.getBaseFile().exists())return null;
+        try(InputStream input=store.openRead()){
+            return decode(ctx,readLimited(input));
+        }
     }
     static void write(Context ctx,Uri file,List<RaceEngine.Racer> racers,int mode,int track)throws Exception{
         byte[] bytes=encode(racers,mode,track).toString().getBytes(StandardCharsets.UTF_8);
