@@ -35,18 +35,9 @@ final class SmartImageSearch {
             }
         }finally{c.disconnect();}
     }
-    private static String[] aliases(String term) {
-        String q=term.trim().toLowerCase(Locale.ROOT);
-        if(q.equals("mario")||q.contains("super mario"))
-            return new String[]{"Mario (character)","Mario Nintendo character"};
-        if(q.equals("sonic")||q.contains("sonic the hedgehog"))
-            return new String[]{"Sonic the Hedgehog","Sonic the Hedgehog Sega character"};
-        if(q.equals("blu")||q.contains("arara blu")||q.contains("blu rio"))
-            return new String[]{"Rio (2011 film)","Blu Rio 2011 animated macaw character"};
-        if(q.equals("luigi"))return new String[]{"Luigi","Luigi Nintendo character"};
-        if(q.equals("yoshi"))return new String[]{"Yoshi","Yoshi Nintendo character"};
-        if(q.equals("tails"))return new String[]{"Tails (Sonic the Hedgehog)","Tails Sega character"};
-        return new String[]{term,term+" character"};
+    private static String[] aliases(String term){
+        // Use the precise user query in both online sources.
+        return new String[]{term,term};
     }
     static ArrayList<OnlineImageSearch.Result> find(String query) {
         LinkedHashMap<String,OnlineImageSearch.Result> found=new LinkedHashMap<>();
