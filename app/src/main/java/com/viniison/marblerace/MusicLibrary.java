@@ -48,7 +48,8 @@ final class MusicLibrary {
             for(int i=0;i<array.length();i++){
                 JSONObject o=array.getJSONObject(i);
                 String uri=o.optString("uri"),title=o.optString("title");
-                if(uri.startsWith("content://")&&!title.isEmpty())
+                if(!title.isEmpty()&&(uri.startsWith("content://")||
+                    uri.startsWith("file://") && uri.contains("/files/restored_music/")))
                     tracks.add(new Track(title,uri));
             }
         }catch(Exception ignored){}
@@ -106,6 +107,18 @@ final class MusicLibrary {
         save();
         Toast.makeText(activity,(tracks.size()-before)+" música(s) adicionada(s).",Toast.LENGTH_SHORT).show();
         showDialog();
+    }
+    /** Snapshot of user-owned music references for the portable ZIP backup. */
+    ArrayList<Track> snapshot(){return new ArrayList<>(tracks);}
+    int selectedIndex(){return selected;}
+    boolean isShuffle(){return shuffle;}
+    void restoreTracks(ArrayList<Track> imported,int selectedIndex,boolean shuffled){
+        stop();
+        tracks.clear();
+        tracks.addAll(imported);
+        selected=tracks.isEmpty()?-1:Math.max(-1,Math.min(tracks.size()-1,selectedIndex));
+        shuffle=shuffled;
+        save();
     }
     boolean hasTrack(){return selected>=0&&selected<tracks.size();}
     Track current(){
