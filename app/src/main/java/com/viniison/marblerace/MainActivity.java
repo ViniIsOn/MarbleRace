@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
     private static final int LIME=0xFFC6F47A;
     private final ArrayList<RaceEngine.Racer> racers=new ArrayList<>();
     private final ExecutorService io=Executors.newFixedThreadPool(4);
+    private final ExecutorService autoSaveQueue=Executors.newSingleThreadExecutor();
     private RaceEngine race;
     private ModeEngine mini;
     private RaceView preview;
@@ -567,6 +568,17 @@ public class MainActivity extends Activity {
         }catch(Exception ignored){}
         if(racers.size()<2){
             racers.clear();
+            try{
+                RacerBackup.Loaded recovered=RacerBackup.autoRestore(this);
+                if(recovered!=null&&recovered.racers.size()>=2){
+                    racers.addAll(recovered.racers);
+                    getPreferences(0).edit().putInt("mode_v3",recovered.mode)
+                        .putInt("track_v2",recovered.track).apply();
+                }
+            }catch(Exception ignored){}
+        }
+        if(racers.size()<2){
+            racers.clear();
             String[] defaults={"TURBO","NEON","COMETA","FLASH","PIXEL","RAIO"};
             for(int i=0;i<defaults.length;i++)
                 racers.add(new RaceEngine.Racer(defaults[i],"",null,RaceEngine.PALETTE[i]));
@@ -581,6 +593,13 @@ public class MainActivity extends Activity {
                 array.put(o);
             }
             getPreferences(0).edit().putString("racers_v1",array.toString()).apply();
+            // Names and actual avatar PNGs are snapshotted after every change.
+            ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
+            final int mode=selectedMode,track=selectedTrack;
+            autoSaveQueue.execute(()->{
+                try{RacerBackup.autoSave(this,snapshot,mode,track);}
+                catch(Exception ignored){}
+            });
         }catch(Exception ignored){}
     }
     private void exportVideo(){
@@ -658,5 +677,5 @@ public class MainActivity extends Activity {
         if(race!=null && race.running){race.running=false;if(startButton!=null)startButton.setText("▶  CONTINUAR");}
         if(mini!=null && mini.running){mini.running=false;if(startButton!=null)startButton.setText("▶  CONTINUAR");}
     }
-    @Override protected void onDestroy(){if(music!=null)music.close();io.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){if(music!=null)music.close();autoSaveQueue.shutdown();io.shutdownNow();super.onDestroy();}
 }
