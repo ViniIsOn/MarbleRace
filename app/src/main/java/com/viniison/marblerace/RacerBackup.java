@@ -31,7 +31,7 @@ final class RacerBackup {
             this.racers=racers;this.mode=mode;this.track=track;
         }
     }
-    private static JSONObject encode(List<RaceEngine.Racer> racers,int mode,int track)throws Exception{
+    static JSONObject encode(List<RaceEngine.Racer> racers,int mode,int track)throws Exception{
         JSONObject root=new JSONObject();
         root.put("format","MarbleLab-creator-backup");
         root.put("version",1);
@@ -109,7 +109,7 @@ final class RacerBackup {
         }
         return out.toByteArray();
     }
-    private static Loaded decode(Context ctx,byte[] bytes)throws Exception{
+    static Loaded decode(Context ctx,byte[] bytes)throws Exception{
         JSONObject root=new JSONObject(new String(bytes,StandardCharsets.UTF_8));
         if(!"MarbleLab-creator-backup".equals(root.optString("format")))
             throw new Exception("Esse arquivo não é um backup MarbleLab");
