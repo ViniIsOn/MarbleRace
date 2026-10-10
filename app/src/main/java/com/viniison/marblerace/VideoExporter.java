@@ -3,6 +3,7 @@ package com.viniison.marblerace;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import java.io.File;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.media.Image;
@@ -108,20 +109,31 @@ final class VideoExporter {
             ctx.getContentResolver().delete(video,null,null);
             throw new InterruptedException("Exportação cancelada");
         }
-        progress.stage("Adicionando trilha sonora ao MP4");
+        progress.stage("Preparando trilha sonora");
         progress.update(93);
+        File converted=null;
         try{
-            Uri soundVideo=MusicMuxer.addMusic(ctx,video,Uri.parse(musicUri),cancel);
+            Uri sound=Uri.parse(musicUri);
+            if(!AudioTranscoder.isAac(ctx,sound)){
+                progress.stage("Convertendo MP3 para AAC");
+                converted=AudioTranscoder.convert(ctx,sound,cancel);
+                sound=Uri.fromFile(converted);
+                progress.update(96);
+            }
+            progress.stage("Incorporando música ao Short");
+            Uri soundVideo=MusicMuxer.addMusic(ctx,video,sound,cancel);
             progress.update(100);
             return soundVideo;
         }catch(InterruptedException cancelled){
             ctx.getContentResolver().delete(video,null,null);
             throw cancelled;
         }catch(Exception e){
-            progress.musicWarning(e.getMessage());
+            progress.musicWarning("O vídeo ficou sem áudio: "+e.getMessage());
             progress.update(100);
-            // The silent MP4 remains available. Never report that it has audio.
+            // Preserve the video and explicitly report missing audio.
             return video;
+        }finally{
+            if(converted!=null)converted.delete();
         }
     }
     private static Uri exportSoftware(Context ctx,List<RaceEngine.Racer> racers,int track,int mode,long seed,Progress progress,AtomicBoolean cancel)throws Exception {
