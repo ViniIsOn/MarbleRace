@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Simulação determinística: a mesma pista produz a mesma corrida no preview e no vídeo. */
 public final class RaceEngine {
     public static final float WORLD_W=1080f;
-    public static final float FINISH_Y=6200f;
+    public static final float FINISH_Y=11500f;
     public static final float BALL_R=40f;
     public static final int TRAIL_SAMPLES=20;
     public static final String[] TRACK_NAMES={"SKY DROP","CANDY LAB","NEON REACTOR","VOLCANO RUSH"};
@@ -32,7 +32,8 @@ public final class RaceEngine {
     }
     public static class Ball {
         public final Racer racer;
-        public float x,y,vx,vy,speedBonus;
+        public float x,y,vx,vy,speedBonus,eventTime;
+        public String eventLabel="";
         public int place=0,trailCount=0,trailCursor=0;
         public float finishTime=-1;
         public final float[] trailX=new float[TRAIL_SAMPLES],trailY=new float[TRAIL_SAMPLES];
@@ -45,11 +46,20 @@ public final class RaceEngine {
     }
     public static class Bumper {
         public final float x,y,r,phase;
-        public final int type; // 0 round bumper; 1 rotor; 2 oscillating bumper
+        public final int type; // 0 bumper, 1 rotor, 2 mover, 3 spring, 4 glue, 5 kicker, 6 slingshot
         Bumper(float x,float y,float r,int type,float phase){
             this.x=x;this.y=y;this.r=r;this.type=type;this.phase=phase;
         }
     }
+    /** Surprise lanes: 0 boost, 1 slowdown, 2 turbo, 3 side kick. */
+    public static class Zone {
+        public final float y,offset,width;
+        public final int kind;
+        Zone(float y,float offset,float width,int kind){
+            this.y=y;this.offset=offset;this.width=width;this.kind=kind;
+        }
+    }
+    public final ArrayList<Zone> zones=new ArrayList<>();
     public final ArrayList<Racer> racers=new ArrayList<>();
     public final ArrayList<Ball> balls=new ArrayList<>();
     public final ArrayList<Bumper> bumpers=new ArrayList<>();
@@ -71,15 +81,26 @@ public final class RaceEngine {
         this.seed=seed;
         racers.addAll(entries);
         Random random=new Random(seed ^ (10942L+this.track*619L));
-        for(int i=0;i<20;i++){
-            float y=480+i*278f;
+        // ~75 different obstacles across a much longer course. Layout depends on
+        // the match seed: new rounds don't repeat the same bumper sequence.
+        for(int i=0;i<65;i++){
+            float y=440+i*165f+random.nextInt(48);
             float cx=centerAt(y);
-            int type=(i%5==2)?1:(i%4==1?2:0);
-            float x=cx+(random.nextFloat()-.5f)*430;
-            float r=type==1?39:30+i%4*7;
-            bumpers.add(new Bumper(x,y,r,type,i*.91f));
-            if((i+track)%3==0)
-                bumpers.add(new Bumper(centerAt(y+125)+(random.nextFloat()-.5f)*390,y+125,27,0,i));
+            int type=random.nextInt(7);
+            float x=cx+(random.nextFloat()-.5f)*485f;
+            float radius=type==1?46:type==3?38:28+random.nextInt(19);
+            bumpers.add(new Bumper(x,y,radius,type,random.nextFloat()*6.28f));
+            if(i%4==1 || (i%7==3&&random.nextBoolean()))
+                bumpers.add(new Bumper(
+                    centerAt(y+83)+(random.nextFloat()-.5f)*485f,
+                    y+83,24+random.nextInt(16),random.nextInt(7),
+                    random.nextFloat()*6.28f));
+        }
+        // Half-lane effects create real lead changes, not cosmetic decoration.
+        for(int i=0;i<18;i++){
+            float y=850+i*570f+random.nextInt(140);
+            float offset=random.nextBoolean()?-178:178;
+            zones.add(new Zone(y,offset,300,random.nextInt(4)));
         }
         reset();
     }
@@ -92,7 +113,7 @@ public final class RaceEngine {
         }
     }
     public float obstacleX(Bumper bumper){
-        return bumper.x+(bumper.type==2?(float)Math.sin(elapsed*2.8f+bumper.phase)*115f:0f);
+        return bumper.x+((bumper.type==2||bumper.type==5)?(float)Math.sin(elapsed*(bumper.type==5?3.7f:2.8f)+bumper.phase)*(bumper.type==5?145f:115f):0f);
     }
     public void reset(){
         // Reset only replays the same seed. Create a new engine for a NEW race.
@@ -104,6 +125,7 @@ public final class RaceEngine {
             b.y=110+(i/4)*105;
             b.vx=(starter.nextFloat()-.5f)*330f;
             b.vy=145+starter.nextFloat()*145f;
+            b.eventTime=0;b.eventLabel="";
             b.speedBonus=(starter.nextFloat()-.5f)*85f;
             b.mark();
             balls.add(b);
@@ -118,6 +140,7 @@ public final class RaceEngine {
         for(int k=0;k<balls.size();k++){
             Ball b=balls.get(k);
             if(b.place>0)continue;
+            b.eventTime=Math.max(0,b.eventTime-dt);
             float acceleration=track==3?230f:210f;
             b.vy=Math.min((track==2?485f:455f)+b.speedBonus,b.vy+acceleration*dt);
             b.vx+=Math.sin(elapsed*1.8f+k*2.4f+track)*72*dt;
@@ -141,12 +164,42 @@ public final class RaceEngine {
                 if(d2<rad*rad && d2>.01f){
                     float d=(float)Math.sqrt(d2),nx=dx/d,ny=dy/d;
                     b.x=ox+nx*rad;b.y=p.y+ny*rad;
-                    b.vx+=nx*(p.type==1?320:245);
-                    b.vy=Math.max(130,b.vy+ny*(p.type==1?90:55)-30);
+                    float force=(p.type==1||p.type==5)?350:230;
+                    b.vx+=nx*force+(p.type==1?(-ny)*140:0);
+                    b.vy=Math.max(110,b.vy+ny*(p.type==1?105:65)-30);
+                    if(p.type==3){
+                        b.vy+=275;
+                        b.eventLabel="MOLA!";b.eventTime=.9f;
+                    }else if(p.type==4){
+                        b.vy=Math.max(105,b.vy*.52f);
+                        b.eventLabel="LENTO!";b.eventTime=.9f;
+                    }else if(p.type==5){
+                        b.vx+=nx*215f;
+                        b.eventLabel="REBATIDA!";b.eventTime=.9f;
+                    }else if(p.type==6){
+                        b.vy+=315f;
+                        b.eventLabel="TURBO!";b.eventTime=.9f;
+                    }
                 }
             }
-            b.vx=Math.max(-430,Math.min(430,b.vx));
-            b.vy=Math.max(115,b.vy);
+            for(Zone zone:zones) {
+                if(prevY<zone.y && b.y>=zone.y &&
+                    Math.abs(b.x-(centerAt(zone.y)+zone.offset))<zone.width*.5f+BALL_R) {
+                    if(zone.kind==0){
+                        b.vy+=320;b.eventLabel="BOOST!";b.eventTime=1;
+                    }else if(zone.kind==1){
+                        b.vy=Math.max(110,b.vy*.45f);
+                        b.eventLabel="ARMADILHA!";b.eventTime=1;
+                    }else if(zone.kind==2){
+                        b.vy+=440;b.eventLabel="ULTRA TURBO!";b.eventTime=1;
+                    }else{
+                        b.vx+=(zone.offset>0?-1:1)*355f;
+                        b.vy+=140;b.eventLabel="REVIRAVOLTA!";b.eventTime=1;
+                    }
+                }
+            }
+            b.vx=Math.max(-485,Math.min(485,b.vx));
+            b.vy=Math.max(105,b.vy);
             // Collision with walls after bumper impact too.
             center=centerAt(b.y);
             b.x=Math.max(center-338+BALL_R,Math.min(center+338-BALL_R,b.x));
