@@ -240,7 +240,8 @@ final class FastVideoExporter {
             Canvas canvas=new Canvas(bitmap);
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
             int podium=0,frameCount=0;
-            for(int frame=0;frame<45*FPS;frame++){
+            final int maxFrames=(mode==0||mode==1?70:45)*FPS;
+            for(int frame=0;frame<maxFrames;frame++){
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
                 if(race!=null){race.advance(1f/FPS);renderer.render(canvas,race,true);}
                 else{mini.advance(1f/FPS);modeRenderer.render(canvas,mini,true);}
@@ -248,7 +249,7 @@ final class FastVideoExporter {
                 gl.draw(bitmap,frame);
                 drain(codec,muxer,state,info,false);
                 frameCount=frame+1;
-                if(frame%12==0)progress.update(Math.min(99,(int)(100L*frameCount/(45*FPS))));
+                if(frame%12==0)progress.update(Math.min(99,(int)(100L*frameCount/maxFrames)));
                 boolean classicDone=race!=null&&race.finished==race.balls.size()&&race.elapsed>=10;
                 boolean miniDone=mini!=null&&mini.winner()!=null&&mini.elapsed>=5
                         &&(mini.mode<=ModeEngine.CORE||mini.finished==mini.orbs.size());
