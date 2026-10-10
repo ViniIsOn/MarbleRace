@@ -117,7 +117,7 @@ public class MainActivity extends Activity {
         sub.setLetterSpacing(.13f);
         brandText.addView(sub);
         brand.addView(brandText,new LinearLayout.LayoutParams(0,-2,1));
-        TextView noAds=text("v1.5.1  •  SEM ADS",10,LIME,true);
+        TextView noAds=text("v1.6  •  SEM ADS",10,LIME,true);
         noAds.setGravity(Gravity.CENTER);
         noAds.setBackground(shape(0xFF223A32,12));
         brand.addView(noAds,new LinearLayout.LayoutParams(dp(112),dp(31)));
@@ -245,7 +245,7 @@ public class MainActivity extends Activity {
         root.addView(export,exp);
         export.setOnClickListener(v->exportVideo());
 
-        TextView foot=text("v1.5.1 • ANTI-TRAVA • MP4 9:16",10,0xFF859BA7,true);
+        TextView foot=text("v1.6 • MP3 NO SHORT • BACKUP MÚSICA",10,0xFF859BA7,true);
         foot.setLetterSpacing(.065f);foot.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(25));root.addView(foot,fp);
     }
