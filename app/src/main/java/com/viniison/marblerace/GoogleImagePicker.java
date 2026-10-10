@@ -31,10 +31,9 @@ final class GoogleImagePicker {
     private int dp(float px){return (int)(activity.getResources().getDisplayMetrics().density*px+.5f);}
     static String searchUrl(String term)throws Exception {
         String q=term==null?"":term.trim();
-        if(q.equalsIgnoreCase("mario"))q="Mario Nintendo rosto PNG personagem";
-        else if(q.equalsIgnoreCase("sonic"))q="Sonic the Hedgehog rosto PNG";
-        else if(q.equalsIgnoreCase("blu"))q="Blu Rio 2011 arara azul rosto PNG";
-        else if(q.isEmpty())q="personagem PNG rosto";
+        // Respect exactly what the user typed. Never append "rosto", "PNG"
+        // or franchise names that bias or hide the requested result.
+        if(q.isEmpty())return "https://www.google.com/imghp?hl=pt-BR";
         return "https://www.google.com/search?tbm=isch&safe=active&q="+URLEncoder.encode(q,"UTF-8");
     }
     void open(String term,Listener listener){
