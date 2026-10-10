@@ -209,8 +209,8 @@ public class MainActivity extends Activity {
         updateMusicButton();
         libraryRow.addView(musicButton,new LinearLayout.LayoutParams(0,dp(43),1));
         musicButton.setOnClickListener(v->music.showDialog());
-        TextView backupButton=button("💾 DADOS",false);
-        LinearLayout.LayoutParams saveParams=new LinearLayout.LayoutParams(dp(110),dp(43));
+        TextView backupButton=button("💾 BACKUP",false);
+        LinearLayout.LayoutParams saveParams=new LinearLayout.LayoutParams(dp(115),dp(43));
         saveParams.leftMargin=dp(6);
         libraryRow.addView(backupButton,saveParams);
         backupButton.setOnClickListener(v->showDataMenu());
@@ -420,17 +420,17 @@ public class MainActivity extends Activity {
     }
     private void showDataMenu(){
         String[] choices={
-            "SALVAR PERFIL • nomes, cores e imagens",
-            "RESTAURAR PERFIL • importar backup",
-            "Os dados são preservados ao atualizar por cima"
+            "SALVAR TUDO • personagens + músicas",
+            "RESTAURAR TUDO • ZIP ou backup JSON antigo",
+            "Atualizações preservam os dados do app"
         };
         new AlertDialog.Builder(this).setTitle("DADOS DOS CORREDORES")
             .setItems(choices,(dialog,which)->{
                 if(which==0) {
                     Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                    i.setType("application/json");
+                    i.setType("application/zip");
                     i.addCategory(Intent.CATEGORY_OPENABLE);
-                    i.putExtra(Intent.EXTRA_TITLE,"MarbleLab_personagens.json");
+                    i.putExtra(Intent.EXTRA_TITLE,"MarbleLab_backup_com_musicas.zip");
                     startActivityForResult(i,RacerBackup.SAVE_REQUEST);
                 }else if(which==1){
                     Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -447,11 +447,13 @@ public class MainActivity extends Activity {
     private void saveCreatorBackup(Uri uri){
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
         final int mode=selectedMode,track=selectedTrack;
-        toast("Salvando personagens...");
+        new AlertDialog.Builder(this).setTitle("Backup completo")
+            .setMessage("As músicas serão copiadas para um ZIP junto das imagens e nomes dos corredores. Dependendo do número de faixas, o arquivo pode ser grande e levar alguns minutos. Mantenha o app aberto.")
+            .setPositiveButton("Entendi",null).show();
         io.execute(()->{
             try{
-                RacerBackup.write(this,uri,snapshot,mode,track);
-                runOnUiThread(()->toast("Backup salvo! Guarde esse arquivo."));
+                StudioBackup.write(this,uri,snapshot,mode,track,music);
+                runOnUiThread(()->toast("Backup completo salvo, com as músicas!"));
             }catch(Exception e){
                 runOnUiThread(()->new AlertDialog.Builder(this)
                     .setTitle("Falha no backup")
@@ -461,16 +463,18 @@ public class MainActivity extends Activity {
     }
     private void restoreCreatorBackup(Uri uri){
         new AlertDialog.Builder(this).setTitle("Restaurar personagens?")
-            .setMessage("Isso substituirá a lista de corredores atual pelos nomes, cores e imagens do arquivo escolhido.")
+            .setMessage("Isso substituirá os corredores atuais e, se for um ZIP completo, também a biblioteca de músicas. Backups JSON antigos restauram apenas os personagens.")
             .setNegativeButton("Cancelar",null)
             .setPositiveButton("Restaurar",(dialog,which)->{
                 io.execute(()->{
                     try{
-                        RacerBackup.Loaded backup=RacerBackup.read(this,uri);
+                        StudioBackup.Loaded backup=StudioBackup.read(this,uri);
                         runOnUiThread(()->{
                             music.stop();
-                            racers.clear();racers.addAll(backup.racers);
-                            selectedMode=backup.mode;selectedTrack=backup.track;
+                            racers.clear();racers.addAll(backup.creator.racers);
+                            selectedMode=backup.creator.mode;selectedTrack=backup.creator.track;
+                            if(backup.hasMusic)
+                                music.restoreTracks(backup.music,backup.selected,backup.shuffle);
                             getPreferences(0).edit()
                                 .putInt("mode_v3",selectedMode)
                                 .putInt("track_v2",selectedTrack).apply();
@@ -478,7 +482,7 @@ public class MainActivity extends Activity {
                             trackButton.setText(RaceEngine.TRACK_NAMES[selectedTrack]+"  ▾");
                             classicTrackRow.setVisibility(selectedMode==0?View.VISIBLE:View.GONE);
                             refresh();
-                            toast("Corredores restaurados com imagens!");
+                            toast(backup.hasMusic?"Corredores e músicas restaurados!":"Corredores restaurados!");
                         });
                     }catch(Exception e){
                         runOnUiThread(()->new AlertDialog.Builder(this)
