@@ -33,6 +33,8 @@ public final class RaceEngine {
     public static class Ball {
         public final Racer racer;
         public float x,y,vx,vy,speedBonus,eventTime;
+        public float progressMarker,stallTime;
+        public int recoveryCount;
         public String eventLabel="";
         public int place=0,trailCount=0,trailCursor=0;
         public float finishTime=-1;
@@ -81,20 +83,23 @@ public final class RaceEngine {
         this.seed=seed;
         racers.addAll(entries);
         Random random=new Random(seed ^ (10942L+this.track*619L));
-        // ~75 different obstacles across a much longer course. Layout depends on
-        // the match seed: new rounds don't repeat the same bumper sequence.
-        for(int i=0;i<65;i++){
-            float y=440+i*165f+random.nextInt(48);
-            float cx=centerAt(y);
+        // Spread obstacles into separated groups, preserving two passable lanes.
+        // No overlapping obstacle disks and no movers pinning balls to a wall.
+        // Different seeds still produce visibly different surprise layouts.
+        for(int i=0;i<53;i++){
+            float y=450+i*201f+random.nextInt(26);
             int type=random.nextInt(7);
-            float x=cx+(random.nextFloat()-.5f)*485f;
-            float radius=type==1?46:type==3?38:28+random.nextInt(19);
+            float lane=(random.nextBoolean()?-1:1)*(95+random.nextInt(105));
+            float x=centerAt(y)+lane;
+            float radius=type==1?45:type==3?37:29+random.nextInt(15);
             bumpers.add(new Bumper(x,y,radius,type,random.nextFloat()*6.28f));
-            if(i%4==1 || (i%7==3&&random.nextBoolean()))
-                bumpers.add(new Bumper(
-                    centerAt(y+83)+(random.nextFloat()-.5f)*485f,
-                    y+83,24+random.nextInt(16),random.nextInt(7),
-                    random.nextFloat()*6.28f));
+            if(i%3==1){
+                float extraY=y+96;
+                float extraX=centerAt(extraY)-lane*.93f;
+                int extraType=random.nextInt(7);
+                bumpers.add(new Bumper(extraX,extraY,29+random.nextInt(11),
+                    extraType,random.nextFloat()*6.28f));
+            }
         }
         // Half-lane effects create real lead changes, not cosmetic decoration.
         for(int i=0;i<18;i++){
@@ -113,7 +118,8 @@ public final class RaceEngine {
         }
     }
     public float obstacleX(Bumper bumper){
-        return bumper.x+((bumper.type==2||bumper.type==5)?(float)Math.sin(elapsed*(bumper.type==5?3.7f:2.8f)+bumper.phase)*(bumper.type==5?145f:115f):0f);
+        return bumper.x+((bumper.type==2||bumper.type==5)?
+            (float)Math.sin(elapsed*(bumper.type==5?3.3f:2.4f)+bumper.phase)*70f:0f);
     }
     public void reset(){
         // Reset only replays the same seed. Create a new engine for a NEW race.
@@ -126,6 +132,7 @@ public final class RaceEngine {
             b.vx=(starter.nextFloat()-.5f)*330f;
             b.vy=145+starter.nextFloat()*145f;
             b.eventTime=0;b.eventLabel="";
+            b.progressMarker=b.y;b.stallTime=0;b.recoveryCount=0;
             b.speedBonus=(starter.nextFloat()-.5f)*85f;
             b.mark();
             balls.add(b);
@@ -144,7 +151,7 @@ public final class RaceEngine {
             float acceleration=track==3?230f:210f;
             b.vy=Math.min((track==2?485f:455f)+b.speedBonus,b.vy+acceleration*dt);
             b.vx+=Math.sin(elapsed*1.8f+k*2.4f+track)*72*dt;
-            b.vx*=.998f;
+            b.vx*=.995f;
             float prevY=b.y;
             b.x+=b.vx*dt;b.y+=b.vy*dt;
             // Energy strips every ~900 world units add visible bursts of speed.
@@ -157,29 +164,38 @@ public final class RaceEngine {
             if(b.x>max){b.x=max;b.vx=-Math.abs(b.vx)*.8f-22;}
             for(Bumper p:bumpers){
                 float dy=b.y-p.y;
-                if(Math.abs(dy)>115)continue;
+                if(Math.abs(dy)>120)continue;
                 float ox=obstacleX(p);
-                float dx=b.x-ox,rad=BALL_R+p.r+(p.type==1?15:3);
+                float dx=b.x-ox,rad=BALL_R+p.r+(p.type==1?13:3);
                 float d2=dx*dx+dy*dy;
-                if(d2<rad*rad && d2>.01f){
-                    float d=(float)Math.sqrt(d2),nx=dx/d,ny=dy/d;
-                    b.x=ox+nx*rad;b.y=p.y+ny*rad;
-                    float force=(p.type==1||p.type==5)?350:230;
-                    b.vx+=nx*force+(p.type==1?(-ny)*140:0);
-                    b.vy=Math.max(110,b.vy+ny*(p.type==1?105:65)-30);
-                    if(p.type==3){
-                        b.vy+=275;
-                        b.eventLabel="MOLA!";b.eventTime=.9f;
-                    }else if(p.type==4){
-                        b.vy=Math.max(105,b.vy*.52f);
-                        b.eventLabel="LENTO!";b.eventTime=.9f;
-                    }else if(p.type==5){
-                        b.vx+=nx*215f;
-                        b.eventLabel="REBATIDA!";b.eventTime=.9f;
-                    }else if(p.type==6){
-                        b.vy+=315f;
-                        b.eventLabel="TURBO!";b.eventTime=.9f;
-                    }
+                if(d2>=rad*rad)continue;
+                // Head-on contact used to push marbles upward every frame.
+                // Choose a deterministic sideways escape instead of trapping
+                // them on top of a bumper or between two neighboring disks.
+                float direction=dx< -1?-1:dx>1?1:((k+(int)(p.phase*9))%2==0?-1:1);
+                float d=(float)Math.sqrt(Math.max(.0001f,d2));
+                float nx=dx/d,ny=dy/d;
+                float penetration=rad-d;
+                float lateral=direction*Math.max(9f,Math.min(28f,penetration*.72f));
+                b.x+=lateral;
+                if(d>2f){
+                    // Small position correction, never a full vertical rewind.
+                    b.x+=nx*Math.min(12f,penetration*.25f);
+                    b.y+=ny*Math.min(4f,penetration*.12f);
+                }
+                b.vx=direction*Math.max(Math.abs(b.vx),235f+(p.type==5?65:0));
+                b.vy=Math.max(185,b.vy*.91f);
+                // Trigger special effects once per contact, not on each frame
+                // of continued contact with the same obstacle.
+                if(p.type==3){
+                    b.vy+=155;b.eventLabel="MOLA!";b.eventTime=.9f;
+                }else if(p.type==4){
+                    b.vy=Math.max(135,b.vy*.82f);
+                    b.eventLabel="LENTO!";b.eventTime=.9f;
+                }else if(p.type==5){
+                    b.vx+=direction*65;b.eventLabel="REBATIDA!";b.eventTime=.9f;
+                }else if(p.type==6){
+                    b.vy+=175;b.eventLabel="TURBO!";b.eventTime=.9f;
                 }
             }
             for(Zone zone:zones) {
@@ -199,7 +215,28 @@ public final class RaceEngine {
                 }
             }
             b.vx=Math.max(-485,Math.min(485,b.vx));
-            b.vy=Math.max(105,b.vy);
+            b.vy=Math.max(150,b.vy);
+            // Detect stalled progress using world distance instead of speed.
+            // As a last resort, roll forward one obstacle diameter, not to the
+            // finish line. This guarantees no endless stuck ball.
+            if(b.y>=b.progressMarker+52){
+                b.progressMarker=b.y;
+                b.stallTime=0;
+            }else{
+                b.stallTime+=dt;
+                if(b.stallTime>2.15f){
+                    float side=((k+b.recoveryCount)&1)==0?1f:-1f;
+                    b.y+=112f;
+                    b.x+=side*50f;
+                    b.vx=side*270f;
+                    b.vy=Math.max(b.vy,315f);
+                    b.progressMarker=b.y;
+                    b.stallTime=0f;
+                    b.recoveryCount++;
+                    b.eventLabel="DESVIO!";
+                    b.eventTime=1.0f;
+                }
+            }
             // Collision with walls after bumper impact too.
             center=centerAt(b.y);
             b.x=Math.max(center-338+BALL_R,Math.min(center+338-BALL_R,b.x));
