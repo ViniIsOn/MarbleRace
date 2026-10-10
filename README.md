@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.4 beta 🎱
+# MarbleLab Studio — v1.5 beta 🎱 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -62,3 +62,16 @@ O arquivo do projeto mantém o mesmo applicationId e dados existentes. Todos os 
 - Corrigida a janela da biblioteca, que não deve mais esconder a lista de músicas no Android.
 
 Para atualizar sem perder seus corredores, **instale o APK novo por cima do existente**, sem desinstalar. Confira o número da versão e o botão de música depois da instalação.
+
+## Novidades da versão 1.5
+
+- Corridas clássicas e Corrida do Aro têm **11.500 unidades de pista**, mais longas que as 6.200 anteriores.
+- Mais de 65 obstáculos principais por mapa, além de obstáculos extras posicionados conforme a semente da partida. Rebatedores, rotores, objetos móveis, molas, pegajosos, rebatedores laterais e lançadores turbo.
+- **Zonas de surpresa** em metade da pista: boost, ultra turbo, freio e desvio. A posição dos obstáculos varia de uma rodada para outra.
+- Exibição de eventos como **BOOST**, **ARMADILHA**, **MOLA** e **REVIRAVOLTA** na bolinha afetada.
+- Exportação vertical de até 70 s nas corridas longas, cortando automaticamente após os resultados.
+- **Google Imagens respeita exatamente a pesquisa digitada**, sem acrescentar termos como "rosto", "personagem" ou "PNG".
+- Os nomes, cores e fotos continuam salvos nas preferências internas e nas imagens do aplicativo. Agora há também uma **cópia de recuperação interna automática** salva após cada edição.
+- Botão **DADOS** na tela: exporta um arquivo `MarbleLab_personagens.json` com as imagens reais embutidas; permite importar o arquivo para restaurar o elenco sem recriá-lo.
+
+**Atenção sobre atualizações:** numa atualização normal, o Android preserva o armazenamento do aplicativo, desde que o APK tenha o mesmo identificador de pacote e **a mesma assinatura digital**. GitHub Actions de testes pode criar uma chave debug diferente a cada execução; nesse caso o Android pode recusar instalar por cima. NÃO desinstale o app com seus personagens sem antes fazer backup. Um backup na pasta Arquivos/Downloads, guardado fora do app, continua disponível após a desinstalação. A cópia automática interna, por sua vez, é apagada ao desinstalar o aplicativo.
