@@ -201,14 +201,21 @@ public class MainActivity extends Activity {
         });
         root.addView(controls,new LinearLayout.LayoutParams(-1,dp(49)));
 
+        LinearLayout libraryRow=row();
         musicButton=button("♫  ADICIONAR MÚSICA   ▾",true);
         musicButton.setBackground(shape(0xFFF2D987,14));
         musicButton.setTextColor(0xFF1B2229);
         updateMusicButton();
+        libraryRow.addView(musicButton,new LinearLayout.LayoutParams(0,dp(43),1));
+        musicButton.setOnClickListener(v->music.showDialog());
+        TextView backupButton=button("💾 DADOS",false);
+        LinearLayout.LayoutParams saveParams=new LinearLayout.LayoutParams(dp(110),dp(43));
+        saveParams.leftMargin=dp(6);
+        libraryRow.addView(backupButton,saveParams);
+        backupButton.setOnClickListener(v->showDataMenu());
         LinearLayout.LayoutParams musicParams=new LinearLayout.LayoutParams(-1,dp(43));
         musicParams.topMargin=dp(7);
-        root.addView(musicButton,musicParams);
-        musicButton.setOnClickListener(v->music.showDialog());
+        root.addView(libraryRow,musicParams);
 
         LinearLayout toolbar=row();
         LinearLayout titles=column();
@@ -410,6 +417,76 @@ public class MainActivity extends Activity {
                 racer.name=n.length()>24?n.substring(0,24):n;refresh();
             }).show();
     }
+    private void showDataMenu(){
+        String[] choices={
+            "SALVAR PERFIL • nomes, cores e imagens",
+            "RESTAURAR PERFIL • importar backup",
+            "Os dados são preservados ao atualizar por cima"
+        };
+        new AlertDialog.Builder(this).setTitle("DADOS DOS CORREDORES")
+            .setItems(choices,(dialog,which)->{
+                if(which==0) {
+                    Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    i.setType("application/json");
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.putExtra(Intent.EXTRA_TITLE,"MarbleLab_personagens.json");
+                    startActivityForResult(i,RacerBackup.SAVE_REQUEST);
+                }else if(which==1){
+                    Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType("*/*");
+                    startActivityForResult(i,RacerBackup.RESTORE_REQUEST);
+                }else{
+                    new AlertDialog.Builder(this)
+                        .setMessage("Na atualização normal, o Android mantém os dados. Se precisar desinstalar, salve um backup antes, porque a desinstalação apaga o armazenamento interno do app.")
+                        .setPositiveButton("Entendi",null).show();
+                }
+            }).setNegativeButton("Fechar",null).show();
+    }
+    private void saveCreatorBackup(Uri uri){
+        ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
+        final int mode=selectedMode,track=selectedTrack;
+        toast("Salvando personagens...");
+        io.execute(()->{
+            try{
+                RacerBackup.write(this,uri,snapshot,mode,track);
+                runOnUiThread(()->toast("Backup salvo! Guarde esse arquivo."));
+            }catch(Exception e){
+                runOnUiThread(()->new AlertDialog.Builder(this)
+                    .setTitle("Falha no backup")
+                    .setMessage(e.getMessage()).setPositiveButton("OK",null).show());
+            }
+        });
+    }
+    private void restoreCreatorBackup(Uri uri){
+        new AlertDialog.Builder(this).setTitle("Restaurar personagens?")
+            .setMessage("Isso substituirá a lista de corredores atual pelos nomes, cores e imagens do arquivo escolhido.")
+            .setNegativeButton("Cancelar",null)
+            .setPositiveButton("Restaurar",(dialog,which)->{
+                io.execute(()->{
+                    try{
+                        RacerBackup.Loaded backup=RacerBackup.read(this,uri);
+                        runOnUiThread(()->{
+                            music.stop();
+                            racers.clear();racers.addAll(backup.racers);
+                            selectedMode=backup.mode;selectedTrack=backup.track;
+                            getPreferences(0).edit()
+                                .putInt("mode_v3",selectedMode)
+                                .putInt("track_v2",selectedTrack).apply();
+                            modeButton.setText(modeName()+"  ▾");
+                            trackButton.setText(RaceEngine.TRACK_NAMES[selectedTrack]+"  ▾");
+                            classicTrackRow.setVisibility(selectedMode==0?View.VISIBLE:View.GONE);
+                            refresh();
+                            toast("Corredores restaurados com imagens!");
+                        });
+                    }catch(Exception e){
+                        runOnUiThread(()->new AlertDialog.Builder(this)
+                            .setTitle("Backup inválido")
+                            .setMessage(e.getMessage()).setPositiveButton("OK",null).show());
+                    }
+                });
+            }).show();
+    }
     private void chooseGallery(RaceEngine.Racer racer){
         pendingPicker=racer;
         Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -419,6 +496,13 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==RacerBackup.SAVE_REQUEST || request==RacerBackup.RESTORE_REQUEST){
+            if(result==RESULT_OK && data!=null && data.getData()!=null){
+                if(request==RacerBackup.SAVE_REQUEST)saveCreatorBackup(data.getData());
+                else restoreCreatorBackup(data.getData());
+            }
+            return;
+        }
         if(request==MusicLibrary.PICK_AUDIO){
             if(result==RESULT_OK)music.onPickerResult(data);
             return;
