@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.5.1 beta 🎱 🎱
+# MarbleLab Studio — v1.6 beta 🎱 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -84,3 +84,14 @@ Para atualizar sem perder seus corredores, **instale o APK novo por cima do exis
 - Se ficar sem progredir por mais de dois segundos, entra uma recuperação curta chamada **DESVIO!**, mantendo a corrida em andamento.
 - A pista mantém o comprimento longo, os rastros coloridos e os resultados baseados em semente aleatória.
 - O GitHub Actions agora executa **96 corridas simuladas + 96 repetições determinísticas** antes de compilar o APK; uma rodada travada faz a build falhar.
+
+## v1.6 — Música no vídeo e backup completo
+
+- Ao exportar, o app usa o áudio selecionado da biblioteca; **MP3 é convertido pelo Android em AAC/M4A**, e então é incorporado ao MP4 sem reencodar o vídeo. Arquivos AAC podem ser incorporados diretamente.
+- A exportação informa quando não foi possível converter a trilha, em vez de afirmar que o vídeo está com som. O codificador depende dos codecs presentes no Android.
+- O botão **BACKUP** agora cria o documento `MarbleLab_backup_com_musicas.zip`. Contém nomes, cores, imagens, pista, modo, lista de músicas, faixa selecionada e **os arquivos de áudio importados**.
+- O ZIP é um arquivo externo: se você guardá-lo em Downloads ou nuvem, poderá restaurar músicas e personagens mesmo após desinstalar o app. Arquivos de áudio grandes tornam o backup demorado e volumoso; não feche o app enquanto ele salva.
+- O botão **RESTAURAR TUDO** aceita o novo ZIP e os backups JSON da versão anterior. JSON antigos restauram apenas os corredores e não mexem na música atual.
+- A cópia automática interna continua salvando os personagens, enquanto o ZIP com músicas é criado **quando você escolher Fazer Backup**, para não duplicar centenas de megabytes sem consentimento.
+- O app não baixa nem redistribui músicas de playlists de terceiros; somente copia arquivos adicionados pelo usuário.
+- **Atualização sem desinstalar** preserva os dados se o APK tiver a mesma assinatura. Se o Android recusar atualizar, exporte o ZIP em uma versão que ofereça o botão antes de remover o aplicativo. A v1.5.1 anterior não tinha músicas no backup; se não for possível atualizar diretamente, preserve os arquivos de áudio originais para reimportá-los.
