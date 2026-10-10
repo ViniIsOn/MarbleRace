@@ -42,6 +42,16 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Test 96 race configurations and replay consistency
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/marble-physics"
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/marble-physics" \
+            tests/android/graphics/Bitmap.java \
+            app/src/main/java/com/viniison/marblerace/RaceEngine.java \
+            tests/com/viniison/marblerace/RaceEngineSmokeTest.java
+          java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.RaceEngineSmokeTest
+
       - name: Build APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
