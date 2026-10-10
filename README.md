@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.5 beta 🎱 🎱
+# MarbleLab Studio — v1.5.1 beta 🎱 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -75,3 +75,12 @@ Para atualizar sem perder seus corredores, **instale o APK novo por cima do exis
 - Botão **DADOS** na tela: exporta um arquivo `MarbleLab_personagens.json` com as imagens reais embutidas; permite importar o arquivo para restaurar o elenco sem recriá-lo.
 
 **Atenção sobre atualizações:** numa atualização normal, o Android preserva o armazenamento do aplicativo, desde que o APK tenha o mesmo identificador de pacote e **a mesma assinatura digital**. GitHub Actions de testes pode criar uma chave debug diferente a cada execução; nesse caso o Android pode recusar instalar por cima. NÃO desinstale o app com seus personagens sem antes fazer backup. Um backup na pasta Arquivos/Downloads, guardado fora do app, continua disponível após a desinstalação. A cópia automática interna, por sua vez, é apagada ao desinstalar o aplicativo.
+
+## v1.5.1 — Corrida sem travar
+
+- Obstáculos continuam variados (rebatidas, molas, turbo, lento, lançadores), mas são distribuídos em grupos separados, com passagem lateral preservada.
+- Movimentos laterais menos extremos deixam os objetos longe das paredes.
+- Uma colisão frontal agora aplica impulso lateral para o corredor conseguir contornar obstáculos em vez de ficar preso acima deles.
+- Se ficar sem progredir por mais de dois segundos, entra uma recuperação curta chamada **DESVIO!**, mantendo a corrida em andamento.
+- A pista mantém o comprimento longo, os rastros coloridos e os resultados baseados em semente aleatória.
+- O GitHub Actions agora executa **96 corridas simuladas + 96 repetições determinísticas** antes de compilar o APK; uma rodada travada faz a build falhar.
