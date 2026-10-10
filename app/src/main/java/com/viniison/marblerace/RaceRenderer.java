@@ -73,32 +73,45 @@ public final class RaceRenderer {
         c.drawPath(path,p);
         p.setStyle(Paint.Style.FILL);p.setColor(ringIntroCourse?0xFF80D4FA:ROAD[t]);c.drawPath(path,p);
         trackLines(c,engine,t,top,bottom,ringIntroCourse);
-        for(float y=650;y<RaceEngine.FINISH_Y;y+=940){
-            if(y<top-80||y>bottom+80)continue;
-            float cx=engine.centerAt(y);
-            fill(c,alpha(ringIntroCourse?0xFF101820:EDGES[t],ringIntroCourse?225:170),cx-320,y-26,cx+320,y+34,11);
-            for(int i=0;i<7;i++) {
-                float x=cx-288+i*92;
-                stroke(c,alpha(Color.WHITE,200),11,x,y-5,x+23,y+14);
+        for(RaceEngine.Zone zone:engine.zones){
+            if(zone.y<top-90||zone.y>bottom+90)continue;
+            float cx=engine.centerAt(zone.y)+zone.offset;
+            int color=zone.kind==1?0xFFFF765F:zone.kind==3?0xFFAF8BFF:
+                zone.kind==2?0xFFFFDC57:0xFF36E9A8;
+            fill(c,alpha(color,215),cx-zone.width*.5f,zone.y-24,
+                cx+zone.width*.5f,zone.y+36,13);
+            for(int i=0;i<4;i++){
+                float x=cx-zone.width*.5f+31+i*67;
+                stroke(c,0xCCFFFFFF,8,x,zone.y-8,x+17,zone.y+12);
             }
+            label(c,zone.kind==1?"SLOW":zone.kind==3?"SWERVE":
+                zone.kind==2?"SUPER BOOST":"BOOST",cx-zone.width*.35f,
+                zone.y-38,23,ringIntroCourse?0xFF132A42:DARK[t],true);
         }
         for(RaceEngine.Bumper b:engine.bumpers){
             if(b.y<top-110||b.y>bottom+110)continue;
             float x=engine.obstacleX(b);
             circle(c,alpha(DARK[t],90),x+7,b.y+10,b.r+15);
             circle(c,ringIntroCourse?0xFF080B10:EDGES[t],x,b.y,b.r+7);
-            circle(c,ringIntroCourse?(b.type==1?0xFF16141B:0xFF333D47):(b.type==1?DARK[t]:PINS[t]),x,b.y,b.r);
+            int fill=b.type==3?0xFF32C9F2:b.type==4?0xFFFF667B:
+                b.type==5?0xFFE4BDF7:b.type==6?0xFFFFD65D:
+                ringIntroCourse?0xFF333D47:PINS[t];
+            circle(c,fill,x,b.y,b.r);
             if(b.type==1){
-                // Rotating hazard with visible spokes.
                 for(int a=0;a<4;a++){
                     double ang=engine.elapsed*3+b.phase+a*Math.PI/2;
-                    float px=x+(float)Math.cos(ang)*b.r*.74f;
-                    float py=b.y+(float)Math.sin(ang)*b.r*.74f;
+                    float px=x+(float)Math.cos(ang)*b.r*.79f;
+                    float py=b.y+(float)Math.sin(ang)*b.r*.79f;
                     stroke(c,ringIntroCourse?0xFFFFC947:PINS[t],9,x,b.y,px,py);
                 }
-                circle(c,Color.WHITE,x,b.y,9);
+                circle(c,Color.WHITE,x,b.y,8);
+            }else if(b.type>=3){
+                String symbol=b.type==3?"↑":b.type==4?"×":b.type==5?"↔":"⚡";
+                label(c,symbol,x-b.r*.37f,b.y+b.r*.38f,
+                    b.r*.9f,0xFF172533,true);
             }else{
-                circle(c,alpha(Color.WHITE,195),x-b.r*.28f,b.y-b.r*.28f,Math.max(5,b.r*.18f));
+                circle(c,alpha(Color.WHITE,195),x-b.r*.28f,b.y-b.r*.28f,
+                    Math.max(5,b.r*.18f));
             }
         }
         float fy=RaceEngine.FINISH_Y;
@@ -110,7 +123,16 @@ public final class RaceRenderer {
             label(c,"FINISH",cx-110,fy-64,52,DARK[t],true);
         }
         for(RaceEngine.Ball b:engine.balls)drawTrail(c,b,top,bottom);
-        for(RaceEngine.Ball b:engine.balls)if(b.y>=top-70&&b.y<=bottom+70)drawBall(c,b);
+        for(RaceEngine.Ball b:engine.balls)if(b.y>=top-70&&b.y<=bottom+70){
+            drawBall(c,b);
+            if(b.eventTime>0&&!b.eventLabel.isEmpty()){
+                float offset=b.eventLabel.length()*10.5f;
+                fill(c,alpha(0xFF142334,(int)(b.eventTime*215)),
+                    b.x-offset-12,b.y-123,b.x+offset+13,b.y-78,11);
+                label(c,b.eventLabel,b.x-offset,b.y-90,24,
+                    alpha(Color.WHITE,(int)(b.eventTime*255)),true);
+            }
+        }
         c.restore();
         if(ringIntroCourse)drawRingRaceHud(c,engine,h);
         else drawHud(c,engine,h);
