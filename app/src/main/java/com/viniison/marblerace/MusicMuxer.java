@@ -15,10 +15,8 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Fast remux, without decoding/re-encoding video or audio.
- * AAC in M4A/MP4/ADTS files is compatible with Android's MP4 MediaMuxer.
- * MP3 and other codecs need transcoding and are intentionally rejected instead
- * of producing corrupt or silently muted MP4s.
+ * Fast remux of video plus AAC soundtrack. MP3 is converted separately by
+ * AudioTranscoder before reaching this muxer; no video frame is re-encoded.
  */
 final class MusicMuxer {
     private MusicMuxer(){}
@@ -37,15 +35,15 @@ final class MusicMuxer {
         Uri output=null;
         boolean started=false,success=false;
         try{
-            videoExt.setDataSource(ctx,video,null);
-            audioExt.setDataSource(ctx,audio,null);
+            AudioTranscoder.setSource(videoExt,ctx,video);
+            AudioTranscoder.setSource(audioExt,ctx,audio);
             int v=findTrack(videoExt,"video/");
             int a=findTrack(audioExt,"audio/");
             if(v<0 || a<0)throw new IllegalArgumentException("Vídeo ou faixa de música inválidos");
             MediaFormat vf=videoExt.getTrackFormat(v),af=audioExt.getTrackFormat(a);
             String mime=af.getString(MediaFormat.KEY_MIME);
             if(!MediaFormat.MIMETYPE_AUDIO_AAC.equals(mime))
-                throw new IllegalArgumentException("A música foi importada, mas para incluir no MP4 use M4A/AAC. MP3 toca no app; adicione MP3 ao Short no editor.");
+                throw new IllegalArgumentException("Não consegui converter a trilha sonora para AAC.");
             long durationUs=vf.containsKey(MediaFormat.KEY_DURATION)?
                 vf.getLong(MediaFormat.KEY_DURATION):0L;
             if(durationUs<1000){
@@ -88,6 +86,7 @@ final class MusicMuxer {
                 if(!videoExt.advance())break;
             }
             audioExt.selectTrack(a);
+            int writtenAudio=0;
             long offset=0,prevTs=-1;
             int loops=0;
             while(offset<durationUs && loops<100){
@@ -107,6 +106,7 @@ final class MusicMuxer {
                 info.offset=0;info.size=size;info.presentationTimeUs=offset+sampleTime;
                 info.flags=audioExt.getSampleFlags();
                 muxer.writeSampleData(audioTrack,data,info);
+                writtenAudio++;
                 prevTs=sampleTime;
                 if(!audioExt.advance()){
                     offset+=sampleTime+23000;
@@ -115,6 +115,8 @@ final class MusicMuxer {
                     audioExt.seekTo(0,MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 }
             }
+            if(writtenAudio==0)throw new Exception("Nenhuma amostra de música foi incluída");
+            muxer.stop();started=false;
             success=true;
             return output;
         }finally{
