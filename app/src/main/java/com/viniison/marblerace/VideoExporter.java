@@ -165,7 +165,8 @@ final class VideoExporter {
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
             int lastFrame=0;
             int podiumFrames=0;
-            for(int frame=0;frame<45*FPS;frame++) {
+            final int maxFrames=(mode==0||mode==1?70:45)*FPS;
+            for(int frame=0;frame<maxFrames;frame++) {
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
                 if(race!=null){race.advance(1f/FPS);renderer.render(canvas,race,true);}
                 else{mini.advance(1f/FPS);gameRenderer.render(canvas,mini,true);}
@@ -184,7 +185,7 @@ final class VideoExporter {
                 codec.queueInputBuffer(input,0,WIDTH*HEIGHT*3/2,frame*1000000L/FPS,0);
                 drain(codec,output,info,false);
                 lastFrame=frame+1;
-                if(frame%15==0)progress.update(Math.min(99,(int)((frame+1)*100f/(45*FPS))));
+                if(frame%15==0)progress.update(Math.min(99,(int)((frame+1)*100f/maxFrames)));
                 boolean classicFinished=race!=null && race.finished==race.balls.size() && race.elapsed>=10;
                 boolean modeFinished=mini!=null && mini.winner()!=null && mini.elapsed>=5
                     && (mini.mode<=ModeEngine.CORE||mini.finished==mini.orbs.size());
