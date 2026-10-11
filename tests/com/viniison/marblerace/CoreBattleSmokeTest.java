@@ -53,6 +53,7 @@ public final class CoreBattleSmokeTest {
             long seed=12345678L+k*1301981L;
             Result a=simulate(seed);
             Result b=simulate(seed);
+            if(k<6)System.out.println("CORE DIAGNOSTIC seed="+seed+" hp="+a.hp0+"/"+a.hp1+" hits="+a.damage0+"/"+a.damage1+" spawn="+a.spawn0+"/"+a.spawn1+" winner="+a.winner);
             victories[a.winner]++;
             totalHits+=a.damage0+a.damage1;
             maxPeak=Math.max(maxPeak,a.peak);
