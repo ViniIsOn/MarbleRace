@@ -313,7 +313,7 @@ public final class CoreBattleEngine {
         if(dist2(dx,dy)>rad*rad)return;
         float speed=(float)Math.sqrt(dist2(m.vx,m.vy));
         // Incoming marbles must earn damage physically, not via a random timer.
-        float power=clamp((3.5f+speed*.023f)*m.mass*.95f,3,58);
+        float power=clamp((3.5f+speed*.013f)*m.mass*.92f,2f,32f);
         // Armor only protects when the projectile actually hits its rectangle.
         // Never subtract HP from distant plates when a marble reaches this core.
         hp[target]=Math.max(0,hp[target]-power);
