@@ -192,7 +192,7 @@ public final class CoreBattleRenderer {
             footer+52,32,0xFFF5DB8C,true);
         title(c,game.eventTimer>0?game.event:"SERRAS • HÉLICES • BOOSTERS • PORTÕES",
             540,footer+112,36,Color.WHITE,true);
-        title(c,"ONDA A CADA 17s • GERADOR 0,2s",540,footer+159,
+        title(c,"ONDAS 17s • GERADOR 0,2s • BOOST DE REVIRAVOLTA",540,footer+159,
             27,0xFF9CC0D3,true);
         if(game.finished){
             block(c,85,h*.38f,995,290,26,0xF50C1725);
