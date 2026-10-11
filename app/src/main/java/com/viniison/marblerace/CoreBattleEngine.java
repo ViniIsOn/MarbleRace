@@ -389,7 +389,10 @@ public final class CoreBattleEngine {
         for(int side=0;side<2;side++){
             while(elapsed>=nextSpawn[side]){
                 if(active[side]<MAX_PER_TEAM)spawnOne(side);
-                nextSpawn[side]+=.2f;
+                // Comeback phase: the trailing core activates a faster physical
+                // spawner, giving it more actual marbles rather than fake damage.
+                boolean behind=hp[side]+90f<hp[1-side];
+                nextSpawn[side]+=behind?.13f:.20f;
             }
         }
         if(elapsed>=nextWave){
