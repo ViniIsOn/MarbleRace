@@ -18,6 +18,7 @@ public final class ModeRenderer {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private float camera=0;
     private final RaceRenderer courseRenderer=new RaceRenderer();
+    private final CoreBattleRenderer battleRenderer=new CoreBattleRenderer();
     public void resetCamera(){camera=0;courseRenderer.resetCamera();}
     private void disc(Canvas c,int color,float x,float y,float radius){
         paint.reset();paint.setAntiAlias(true);paint.setColor(color);
@@ -50,6 +51,10 @@ public final class ModeRenderer {
         if(original.getWidth()==0||original.getHeight()==0)return;
         if(engine.mode==ModeEngine.RING){
             renderRingStartAndRace(original,engine,exporting);
+            return;
+        }
+        if(engine.mode==ModeEngine.CORE && engine.coreBattle!=null){
+            battleRenderer.render(original,engine.coreBattle,engine.orbs);
             return;
         }
         original.save();
