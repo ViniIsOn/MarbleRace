@@ -22,6 +22,8 @@ public final class CoreBattleEngine {
     private static final float GRAVITY=440f,RESTITUTION=.82f;
     private final Random rng;
     private final long seed;
+    /** Entrants swap core positions by match seed to distribute any map-side advantage. */
+    public final int[] entrantAtCore;
     /** Seeded strength of comeback ammunition, visible as heavier marbles. */
     public final float comebackMassPower;
     @SuppressWarnings("unchecked")
@@ -74,7 +76,7 @@ public final class CoreBattleEngine {
     public final int[] hits={0,0},active={0,0},spawned={0,0},boosts={0,0},approaches={0,0},winTotals={0,0};
     public final float[] approachSumX={0,0};
     public float elapsed=0,cranePhase=0;
-    public int winner=-1;
+    public int winner=-1,physicalWinner=-1;
     public boolean finished=false;
     public String event="PREPARE-SE",lastEvent="PREPARE-SE";
     public float eventTimer=0;
@@ -84,6 +86,8 @@ public final class CoreBattleEngine {
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
+        boolean swapped=(seed&1L)!=0L;
+        entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         comebackMassPower=1.55f+((seed>>>4)&1023L)/1023f*1.6f;
         rng=new Random(seed ^ 0x53A1C4B17L);
         for(int i=0;i<cells.length;i++)cells[i]=new ArrayList<>();
@@ -95,7 +99,7 @@ public final class CoreBattleEngine {
         Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);Arrays.fill(destroyedAt,-1f);
         Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
         nextSpawn[0]=.55f;nextSpawn[1]=.65f;nextWave=15;
-        elapsed=0;cranePhase=0;winner=-1;finished=false;event="PREPARE-SE";
+        elapsed=0;cranePhase=0;winner=-1;physicalWinner=-1;finished=false;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
         // Outer border + central separator; funnels guide opposite trajectories.
         segments.add(new Segment(MIN_X,TOP,MIN_X,BOTTOM));
@@ -412,9 +416,12 @@ public final class CoreBattleEngine {
         }else if(hp[0]!=hp[1])winner=hp[0]>hp[1]?0:1;
         else if(hits[0]!=hits[1])winner=hits[0]>hits[1]?0:1;
         else winner=rng.nextBoolean()?0:1;
+        physicalWinner=winner;
+        winner=entrantAtCore[physicalWinner];
         setEvent("VITÓRIA DO NÚCLEO");
         if(!burstAtFinish){
-            particle(CORE_X[1-winner],CORE_Y,winner==0?0xFF80DCFF:0xFFFF638C,42);
+            particle(CORE_X[1-physicalWinner],CORE_Y,
+                physicalWinner==0?0xFF80DCFF:0xFFFF638C,42);
             burstAtFinish=true;
         }
     }
