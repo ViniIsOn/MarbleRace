@@ -52,6 +52,14 @@ jobs:
             tests/com/viniison/marblerace/RaceEngineSmokeTest.java
           java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.RaceEngineSmokeTest
 
+      - name: Test 48 Core Destruction battles (60-90 seconds)
+        shell: bash
+        run: |
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/marble-physics" \
+            app/src/main/java/com/viniison/marblerace/CoreBattleEngine.java \
+            tests/com/viniison/marblerace/CoreBattleSmokeTest.java
+          java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.CoreBattleSmokeTest
+
       - name: Build APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
