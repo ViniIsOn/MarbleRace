@@ -86,13 +86,13 @@ public final class CoreBattleRenderer {
                 x+150,875,26,closed?0xFFFF9B8C:0xFF6FEFC4,true);
         }
         // Boosters point toward the other team's core.
+        // Full-width booster field. It physically redirects each team's marble,
+        // including marbles swept into the opponent lane by the funnels.
+        block(c,61,795,958,62,13,0xFF14464E);
         for(int side=0;side<2;side++){
-            float x=side==0?205:585;
-            block(c,x,795,290,59,12,0xFF15535A);
-            for(int i=0;i<4;i++){
-                float cx=x+38+i*65;
-                title(c,side==0?"➜":"➜",cx,837,42,TEAM[side],true);
-            }
+            float start=side==0?80:580;
+            for(int i=0;i<5;i++)
+                title(c,side==0?"➜":"←",start+i*88,837,43,TEAM[side],true);
         }
         for(CoreBattleEngine.Peg peg:g.pegs){
             disc(c,peg.x+3,peg.y+3,peg.r+6,0xFF0E1926);
