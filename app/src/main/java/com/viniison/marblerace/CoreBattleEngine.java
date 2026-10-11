@@ -248,7 +248,7 @@ public final class CoreBattleEngine {
         // Two rotating rigid paddles with tangential velocity transfer.
         float[][] prop={{280,770},{800,770},{540,985}};
         for(int i=0;i<prop.length;i++){
-            float ang=cranePhase*(i==1?-2.35f:2.35f)+i;
+            float ang=(i==1?-1f:1f)*cranePhase*2.35f + (i==2?1.5707963f:0f);
             float vx=(float)Math.cos(ang)*105f,vy=(float)Math.sin(ang)*105f;
             float x=prop[i][0],y=prop[i][1];
             float ds=dist2(m.x-x,m.y-y);
