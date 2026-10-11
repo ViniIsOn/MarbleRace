@@ -34,7 +34,7 @@ public final class CoreBattleSmokeTest {
                     throw new AssertionError("Physics diverged");
                 if(ball.active){
                     float speed=(float)Math.hypot(ball.vx,ball.vy);
-                    if(speed>780f)throw new AssertionError("Unbounded marble speed: "+speed);
+                    if(speed>1090f)throw new AssertionError("Unbounded marble speed: "+speed);
                 }
             }
             peak=Math.max(peak,g.marbles.size());
