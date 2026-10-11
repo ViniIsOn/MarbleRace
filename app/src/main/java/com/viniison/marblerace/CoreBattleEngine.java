@@ -309,6 +309,17 @@ public final class CoreBattleEngine {
                 segmentCollision(m,segment.x1,segment.y1,segment.x2,segment.y2,7,0);
         }
         machinery(m);
+        // Directional booster field keeps momentum aimed toward the opponent.
+        // Team that is behind receives a stronger *physical* push, enabling
+        // actual comeback collisions instead of picking a winner by script.
+        if(m.boosted && m.y>865 && m.y<1145){
+            int enemy=1-m.side;
+            float deficit=Math.max(0,(hp[enemy]-hp[m.side])/MAX_HP);
+            float targetVx=clamp((CORE_X[enemy]-m.x)/.37f,-890,890);
+            float steering=clamp(dt*(3.1f+deficit*15f),0,.7f);
+            m.vx+=(targetVx-m.vx)*steering;
+            if(deficit>.20f)m.vy=Math.min(m.vy,540f-deficit*125f);
+        }
         for(Armor a:armor)if(a.hp>0 && Math.abs(m.x-a.x)<a.w+38 && Math.abs(m.y-a.y)<a.h+38)
             damageArmor(m,a);
         damageCore(m,1-m.side);
