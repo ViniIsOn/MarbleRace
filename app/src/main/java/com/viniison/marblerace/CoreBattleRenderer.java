@@ -137,7 +137,7 @@ public final class CoreBattleRenderer {
                         y1+35,2.7f,0xFF111B2A);
                 }
             }
-            face(c,side<entrants.size()?entrants.get(side).racer.avatar:null,
+            face(c,g.entrantAtCore[side]<entrants.size()?entrants.get(g.entrantAtCore[side]).racer.avatar:null,
                 x,y-6,24,0xFF060B12);
         }
         for(CoreBattleEngine.Armor a:g.armor){
@@ -176,7 +176,8 @@ public final class CoreBattleRenderer {
         title(c,String.format(Locale.US,"%02d:%02d",secs/60,secs%60),976,69,50,0xFFFFE18C,true);
         for(int side=0;side<2;side++){
             int color=TEAM[side];float x=side==0?36:560;
-            String name=side<entrants.size()?entrants.get(side).racer.name:"TIME "+(side+1);
+            int racerIndex=game.entrantAtCore[side];
+            String name=racerIndex<entrants.size()?entrants.get(racerIndex).racer.name:"TIME "+(side+1);
             title(c,clip(name,16).toUpperCase(Locale.ROOT),x,119,34,color,false);
             block(c,x,133,474,28,9,0xFF313F50);
             block(c,x,133,Math.max(1,474*game.hp[side]/CoreBattleEngine.MAX_HP),
@@ -189,7 +190,8 @@ public final class CoreBattleRenderer {
         block(c,13,footer,1054,192,22,0xEE111A28);
         title(c,"OBJETOS EM CENA: "+game.marbles.size()+" / 600",40,footer+52,
             31,0xFFD6E9F5,false);
-        title(c,"PLACAR  "+game.winTotals[0]+"  ×  "+game.winTotals[1],1040,
+        title(c,"PLACAR  "+game.winTotals[game.entrantAtCore[0]]+
+            "  ×  "+game.winTotals[game.entrantAtCore[1]],1040,
             footer+52,32,0xFFF5DB8C,true);
         title(c,game.eventTimer>0?game.event:"SERRAS • HÉLICES • BOOSTERS • PORTÕES",
             540,footer+112,36,Color.WHITE,true);
@@ -198,7 +200,7 @@ public final class CoreBattleRenderer {
         if(game.finished){
             block(c,85,h*.38f,995,290,26,0xF50C1725);
             title(c,"NÚCLEO VENCEDOR",540,h*.38f+77,59,
-                TEAM[Math.max(0,game.winner)],true);
+                TEAM[Math.max(0,game.physicalWinner)],true);
             String who=game.winner<entrants.size()?
                 entrants.get(game.winner).racer.name:"EQUIPE";
             title(c,clip(who,17).toUpperCase(Locale.ROOT),540,h*.38f+169,
