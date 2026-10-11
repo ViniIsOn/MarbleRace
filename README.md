@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.6 beta 🎱 🎱
+# MarbleLab Studio — v1.7 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -95,3 +95,17 @@ Para atualizar sem perder seus corredores, **instale o APK novo por cima do exis
 - A cópia automática interna continua salvando os personagens, enquanto o ZIP com músicas é criado **quando você escolher Fazer Backup**, para não duplicar centenas de megabytes sem consentimento.
 - O app não baixa nem redistribui músicas de playlists de terceiros; somente copia arquivos adicionados pelo usuário.
 - **Atualização sem desinstalar** preserva os dados se o APK tiver a mesma assinatura. Se o Android recusar atualizar, exporte o ZIP em uma versão que ofereça o botão antes de remover o aplicativo. A v1.5.1 anterior não tinha músicas no backup; se não for possível atualizar diretamente, preserve os arquivos de áudio originais para reimportá-los.
+
+## v1.7 — CORE DESTRUCTION (1 a 2 minutos)
+
+O antigo modo de acertar um único círculo foi substituído por uma batalha **entre dois núcleos** inspirada no gênero de minijogos de simulação de competições. As artes, lógica e animações são originais do MarbleLab, sem reproduzir imagens do MIKAN.
+
+- A primeira bolinha da lista representa o núcleo **amarelo**; a segunda, o **roxo**. Os rostos dos corredores aparecem nas estruturas.
+- Núcleos com **320 HP** e barras de resistência, efeitos de impacto e vencedor anunciado no fim.
+- Armas automáticas alternam **tiros, bombas, serras, laser e golpes de guindaste**. O escudo temporário protege contra parte do dano. Um guindaste animado percorre a arena.
+- A batalha usa um **cronômetro de 90 segundos**: não acaba antes de 60 segundos, terminando em até 90 segundos. Se nenhum núcleo chegar a zero HP, ganha quem tiver mais vida.
+- Os resultados mudam a cada nova disputa, mas a exportação reproduz a mesma semente para preservar o vencedor.
+- O vídeo MP4 aceita até **95 segundos** neste modo, incluindo a tela final. O áudio da biblioteca continua disponível.
+- O GitHub Actions executa **48 batalhas simuladas e repetições idênticas** para validar duração, danos e resultados antes de gerar o APK.
+
+A versão 1.7 mantém o mesmo `applicationId` e mecanismo de backup ZIP com personagens e músicas. Atualize o APK por cima sem desinstalar quando a assinatura permitir.
