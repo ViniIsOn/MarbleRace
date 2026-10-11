@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
     private LinearLayout classicTrackRow;
     private int selectedMode=1;
     private int selectedTrack=0;
+    private boolean coreScoreRecorded=false;
     private RaceEngine.Racer pendingPicker;
     private float speed=1;
     private int speedIndex=0;
@@ -70,6 +71,7 @@ public class MainActivity extends Activity {
         if(selectedTrack<0||selectedTrack>=RaceEngine.TRACK_NAMES.length)selectedTrack=0;
         race=new RaceEngine(racers,selectedTrack);
         mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+        loadCoreScore();
         music=new MusicLibrary(this);
         makeScreen();
         music.onUpdate(()->updateMusicButton());
@@ -173,6 +175,7 @@ public class MainActivity extends Activity {
             }else{
                 if(mini.winner()!=null || (mini.finished==mini.orbs.size()&&mini.finished>0)){
                     mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+                    loadCoreScore();
                     preview.modeRenderer.resetCamera();
                 }
                 mini.toggle();
@@ -188,6 +191,7 @@ public class MainActivity extends Activity {
         reset.setOnClickListener(v->{
             race=new RaceEngine(racers,selectedTrack);
             mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+            loadCoreScore();
             music.stop();
             preview.renderer.resetCamera();preview.modeRenderer.resetCamera();
             startButton.setText("▶  INICIAR");preview.invalidate();
@@ -284,6 +288,7 @@ public class MainActivity extends Activity {
                 if(race!=null && !race.running && race.finished==race.balls.size() && race.finished>0 && startButton!=null)
                     startButton.setText("▶  NOVA CORRIDA");
             }else{
+                if(mini!=null)recordCoreWinOnce();
                 if(mini!=null)modeRenderer.render(canvas,mini,false);
                 if(mini!=null && !mini.running && mini.winner()!=null && startButton!=null)
                     startButton.setText("▶  NOVA DISPUTA");
@@ -326,9 +331,30 @@ public class MainActivity extends Activity {
         music.stop();
         race=new RaceEngine(racers,selectedTrack);
         mini=new ModeEngine(racers,Math.max(0,selectedMode-1));
+        loadCoreScore();
         if(preview!=null){preview.renderer.resetCamera();preview.modeRenderer.resetCamera();preview.invalidate();}
         if(startButton!=null)startButton.setText("▶  INICIAR");
         redrawRacers();saveRacers();
+    }
+    private void loadCoreScore(){
+        coreScoreRecorded=false;
+        if(mini!=null&&mini.coreBattle!=null){
+            android.content.SharedPreferences score=getSharedPreferences("core_score_v1",MODE_PRIVATE);
+            mini.coreBattle.winTotals[0]=score.getInt("blue",0);
+            mini.coreBattle.winTotals[1]=score.getInt("red",0);
+        }
+    }
+    private void recordCoreWinOnce(){
+        if(selectedMode!=ModeEngine.CORE+1||mini==null||
+            mini.coreBattle==null||!mini.coreBattle.finished||coreScoreRecorded)return;
+        coreScoreRecorded=true;
+        int side=mini.coreBattle.winner;
+        if(side<0||side>1)return;
+        android.content.SharedPreferences score=getSharedPreferences("core_score_v1",MODE_PRIVATE);
+        String key=side==0?"blue":"red";
+        int wins=score.getInt(key,0)+1;
+        score.edit().putInt(key,wins).apply();
+        mini.coreBattle.winTotals[side]=wins;
     }
     private String modeName(){
         return selectedMode==0?"CORRIDA CLÁSSICA":ModeEngine.NAMES[selectedMode-1];
