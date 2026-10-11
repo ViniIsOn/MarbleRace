@@ -136,6 +136,9 @@ public final class CoreBattleEngine {
     private void addMarble(int team,float x,float y){
         if(active[team]>=MAX_PER_TEAM)return;
         float r=rnd(BALL_MIN_R,BALL_MAX_R);
+        // Comeback waves physically grow larger/heavier (therefore delivering
+        // more momentum to armor and cores), instead of scripted extra damage.
+        if(hp[team]+90f<hp[1-team])r*=1.22f;
         // Wide enough spacing prevents pathological overlap at spawners.
         float dir=team==0?1f:-1f;
         marbles.add(new Marble(++idSequence,team,x,y,dir*rnd(35,90),
