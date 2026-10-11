@@ -3,12 +3,12 @@ package com.viniison.marblerace;
 /** Real-physics regression: caps, collision stability, HP, damage, waves and deterministic export. */
 public final class CoreBattleSmokeTest {
     static class Result {
-        final int winner,damage0,damage1,spawn0,spawn1,boost0,boost1,peak;
+        final int physicalWinner,winner,damage0,damage1,spawn0,spawn1,boost0,boost1,peak;
         final int approach0,approach1;
         final float approachX0,approachX1;
         final float elapsed,hp0,hp1;
         Result(CoreBattleEngine game,int peak){
-            winner=game.winner;elapsed=game.elapsed;hp0=game.hp[0];hp1=game.hp[1];
+            winner=game.winner;physicalWinner=game.physicalWinner;elapsed=game.elapsed;hp0=game.hp[0];hp1=game.hp[1];
             damage0=game.hits[0];damage1=game.hits[1];
             spawn0=game.spawned[0];spawn1=game.spawned[1];boost0=game.boosts[0];boost1=game.boosts[1];this.peak=peak;
             approach0=game.approaches[0];approach1=game.approaches[1];
@@ -88,26 +88,27 @@ public final class CoreBattleSmokeTest {
 
     public static void main(String[] args){
         physicsRegressions();
-        int[] victories={0,0};
+        int[] victories={0,0}, physicalVictories={0,0};
         int totalHits=0,maxPeak=0;
         for(int k=0;k<32;k++){
             long seed=12345678L+k*1301981L;
             Result a=simulate(seed);
             Result b=simulate(seed);
-            if(k<6)System.out.println("CORE DIAGNOSTIC seed="+seed+" hp="+a.hp0+"/"+a.hp1+" hits="+a.damage0+"/"+a.damage1+" spawn="+a.spawn0+"/"+a.spawn1+" boosts="+a.boost0+"/"+a.boost1+" approach="+a.approach0+"/"+a.approach1+" meanX="+a.approachX0+"/"+a.approachX1+" winner="+a.winner);
+            if(k<6)System.out.println("CORE DIAGNOSTIC seed="+seed+" hp="+a.hp0+"/"+a.hp1+" hits="+a.damage0+"/"+a.damage1+" spawn="+a.spawn0+"/"+a.spawn1+" boosts="+a.boost0+"/"+a.boost1+" approach="+a.approach0+"/"+a.approach1+" meanX="+a.approachX0+"/"+a.approachX1+" winner="+a.winner+" physicalWinner="+a.physicalWinner);
             victories[a.winner]++;
+            physicalVictories[a.physicalWinner]++;
             totalHits+=a.damage0+a.damage1;
             maxPeak=Math.max(maxPeak,a.peak);
-            if(a.winner!=b.winner ||Float.compare(a.elapsed,b.elapsed)!=0 ||
+            if(a.winner!=b.winner || a.physicalWinner!=b.physicalWinner ||Float.compare(a.elapsed,b.elapsed)!=0 ||
                 Float.compare(a.hp0,b.hp0)!=0 ||Float.compare(a.hp1,b.hp1)!=0 ||
                 a.spawn0!=b.spawn0||a.spawn1!=b.spawn1||
                 a.damage0!=b.damage0||a.damage1!=b.damage1)
                 throw new AssertionError("Export outcome differed for seed "+seed);
         }
         if(totalHits<16)throw new AssertionError("No real hits on enemy cores: "+totalHits);
-        if(victories[0]==0||victories[1]==0)
-            throw new AssertionError("Unbalanced winners: "+victories[0]+"/"+victories[1]);
+        if(victories[0]==0||victories[1]==0||physicalVictories[0]==0||physicalVictories[1]==0)
+            throw new AssertionError("Unbalanced winners: entrants="+victories[0]+"/"+victories[1]+" physical="+physicalVictories[0]+"/"+physicalVictories[1]);
         System.out.println("PASS: 32 physics battles + exact replays; real hits="+totalHits+
-            ", max marbles="+maxPeak+", winners="+victories[0]+"/"+victories[1]);
+            ", max marbles="+maxPeak+", winners="+victories[0]+"/"+victories[1]+" physical="+physicalVictories[0]+"/"+physicalVictories[1]);
     }
 }
