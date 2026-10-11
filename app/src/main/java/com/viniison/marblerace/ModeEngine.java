@@ -10,7 +10,7 @@ import java.util.Random;
  */
 public final class ModeEngine {
     public static final String[] NAMES={
-        "CORRIDA DO ARO","ELIMINAÇÃO","DESTRUIR O NÚCLEO","CORRIDA DE MINHOCAS","BICICLETAS"
+        "CORRIDA DO ARO","ELIMINAÇÃO","CORE DESTRUCTION","CORRIDA DE MINHOCAS","BICICLETAS"
     };
     public static final String[] DESCRIPTIONS={
         "Contagem no aro, depois pista com obstáculos e chegada",
