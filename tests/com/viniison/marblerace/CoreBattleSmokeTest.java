@@ -3,12 +3,12 @@ package com.viniison.marblerace;
 /** Real-physics regression: caps, collision stability, HP, damage, waves and deterministic export. */
 public final class CoreBattleSmokeTest {
     static class Result {
-        final int winner,damage0,damage1,spawn0,spawn1,peak;
+        final int winner,damage0,damage1,spawn0,spawn1,boost0,boost1,peak;
         final float elapsed,hp0,hp1;
         Result(CoreBattleEngine game,int peak){
             winner=game.winner;elapsed=game.elapsed;hp0=game.hp[0];hp1=game.hp[1];
             damage0=game.hits[0];damage1=game.hits[1];
-            spawn0=game.spawned[0];spawn1=game.spawned[1];this.peak=peak;
+            spawn0=game.spawned[0];spawn1=game.spawned[1];boost0=game.boosts[0];boost1=game.boosts[1];this.peak=peak;
         }
     }
     private static Result simulate(long seed){
@@ -53,7 +53,7 @@ public final class CoreBattleSmokeTest {
             long seed=12345678L+k*1301981L;
             Result a=simulate(seed);
             Result b=simulate(seed);
-            if(k<6)System.out.println("CORE DIAGNOSTIC seed="+seed+" hp="+a.hp0+"/"+a.hp1+" hits="+a.damage0+"/"+a.damage1+" spawn="+a.spawn0+"/"+a.spawn1+" winner="+a.winner);
+            if(k<6)System.out.println("CORE DIAGNOSTIC seed="+seed+" hp="+a.hp0+"/"+a.hp1+" hits="+a.damage0+"/"+a.damage1+" spawn="+a.spawn0+"/"+a.spawn1+" boosts="+a.boost0+"/"+a.boost1+" winner="+a.winner);
             victories[a.winner]++;
             totalHits+=a.damage0+a.damage1;
             maxPeak=Math.max(maxPeak,a.peak);
