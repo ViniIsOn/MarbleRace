@@ -15,8 +15,8 @@ import java.util.Locale;
 /** 9:16-friendly arena; every hazard displayed here also exists in the physics. */
 public final class CoreBattleRenderer {
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final int BG=0xFF050A13,BLUE=0xFF46C5FF,RED=0xFFFF5673;
-    private static final int[] TEAM={BLUE,RED};
+    private static final int BG=0xFF030406,YELLOW=0xFFFFD921,PURPLE=0xFF9C39FA;
+    private static final int[] TEAM={YELLOW,PURPLE};
     private final Path polygon=new Path();
     private void disc(Canvas c,float x,float y,float r,int color){
         p.reset();p.setAntiAlias(true);p.setColor(color);c.drawCircle(x,y,r,p);
@@ -69,35 +69,55 @@ public final class CoreBattleRenderer {
         disc(c,x,y,22,0xFF34435A);
         disc(c,x,y,8,0xFFDAEDF8);
     }
+    private void crane(Canvas c,CoreBattleEngine g,int side){
+        float center=CoreBattleEngine.CORE_X[side], x=g.craneX(side);
+        float y=CoreBattleEngine.TOP+53f;
+        // The trolley is tied to the actual wave-release coordinate in physics.
+        stroke(c,center-190,y-26,center+190,y-26,14,0xFF272C36);
+        stroke(c,center-190,y-27,center+190,y-27,3,0xFF7D8795);
+        stroke(c,x,y-15,x,y+96,5,0xFF707882);
+        block(c,x-28,y-32,56,30,5,0xFF313743);
+        block(c,x-19,y-27,38,13,4,TEAM[side]);
+        stroke(c,x-25,y+89,x,y+114,8,0xFFA7ABB3);
+        stroke(c,x+25,y+89,x,y+114,8,0xFFA7ABB3);
+        disc(c,x,y+89,9,0xFFE3E6EB);
+        title(c,"CRANE "+(side+1),center,y-57,23,0xFFAAB4C2,true);
+    }
     private void arena(Canvas c,CoreBattleEngine g,List<ModeEngine.Orb> entrants){
-        block(c,0,CoreBattleEngine.TOP-8,1080,1285,0,0xFF0B1321);
+        block(c,0,CoreBattleEngine.TOP-115,1080,
+            CoreBattleEngine.BOTTOM-CoreBattleEngine.TOP+240,0,0xFF070708);
+        for(int i=0;i<14;i++){
+            float yy=CoreBattleEngine.TOP+i*95;
+            stroke(c,0,yy,1080,yy,1,0xFF141518);
+        }
+        crane(c,g,0);crane(c,g,1);
         // A central divider gives marbles separate launch lanes.
         for(CoreBattleEngine.Segment wall:g.segments){
-            stroke(c,wall.x1,wall.y1,wall.x2,wall.y2,20,0xFF232F3F);
-            stroke(c,wall.x1,wall.y1,wall.x2,wall.y2,8,0xFF9BAEBE);
+            stroke(c,wall.x1,wall.y1,wall.x2,wall.y2,18,0xFF111217);
+            stroke(c,wall.x1,wall.y1,wall.x2,wall.y2,6,0xFF7B7F84);
         }
         // Event gates alternate every five seconds and physically block marbles.
         boolean closed=g.gateClosed();
         for(int side=0;side<2;side++){
             float x=side==0?80:700;
             stroke(c,x,910,x+300,910,closed?24:5,
-                closed?0xFFFF7D62:0xFF4EBB8E);
+                closed?0xFFE86235:0xFF3DBA75);
             title(c,closed?"PORTÃO FECHADO":"PORTÃO ABERTO",
-                x+150,875,26,closed?0xFFFF9B8C:0xFF6FEFC4,true);
+                x+150,875,26,closed?0xFFFFAF81:0xFF94DAAE,true);
         }
         // Boosters point toward the other team's core.
         // Full-width booster field. It physically redirects each team's marble,
         // including marbles swept into the opponent lane by the funnels.
-        block(c,61,795,958,62,13,0xFF14464E);
+        block(c,61,795,958,62,5,0xFF202522);
         for(int side=0;side<2;side++){
             float start=side==0?80:580;
             for(int i=0;i<5;i++)
                 title(c,side==0?"➜":"←",start+i*88,837,43,TEAM[side],true);
         }
         for(CoreBattleEngine.Peg peg:g.pegs){
-            disc(c,peg.x+3,peg.y+3,peg.r+6,0xFF0E1926);
-            disc(c,peg.x,peg.y,peg.r,0xFF62E8AF);
-            disc(c,peg.x-4,peg.y-4,5,0xFFE3FFF2);
+            disc(c,peg.x+3,peg.y+3,peg.r+6,0xFF111112);
+            disc(c,peg.x,peg.y,peg.r,0xFF9BA4AA);
+            disc(c,peg.x-4,peg.y-4,5,0xFFFFFFFF);
         }
         // Rotating physical saw wheels
         saw(c,340,858,40,g.cranePhase);
@@ -117,17 +137,24 @@ public final class CoreBattleRenderer {
             float x=CoreBattleEngine.CORE_X[side],y=CoreBattleEngine.CORE_Y;
             int color=TEAM[side];
             float radius=CoreBattleEngine.CORE_RADIUS;
-            disc(c,x+5,y+8,radius+18,0xAA000000);
-            disc(c,x,y,radius+8,0xFF070F19);
-            disc(c,x,y,radius,color);
-            for(int ring=0;ring<5;ring++){
-                p.reset();p.setAntiAlias(true);p.setColor(opacity(0xFF0B1421,80));
-                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);
-                c.drawCircle(x,y,radius-11-ring*12,p);
+            // Two giant machine targets instead of tiny HUD-like icons.
+            float large=radius+114;
+            disc(c,x+7,y+9,large+9,0xFF010102);
+            disc(c,x,y,large,side==0?0xFF75650B:0xFF481C76);
+            disc(c,x,y,large-15,side==0?0xFFBDA111:0xFF7026BA);
+            for(int ring=0;ring<10;ring++){
+                p.reset();p.setAntiAlias(true);
+                p.setColor(opacity(side==0?0xFFEDD344:0xFFAF69E9,92));
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.5f);
+                c.drawCircle(x,y,large-18-ring*12,p);
             }
-            if(g.flash[side]>0){
-                disc(c,x,y,radius,opacity(Color.WHITE,255*g.flash[side]/.16f));
-            }
+            disc(c,x,y,radius+9,0xFF050608);
+            disc(c,x,y,radius,side==0?0xFFD6B619:0xFF8430D2);
+            if(g.flash[side]>0)
+                disc(c,x,y,radius,opacity(Color.WHITE,
+                    255*g.flash[side]/.16f));
+            disc(c,x,y,25,0xFF03FE26);
+            disc(c,x-6,y-7,7,0xFFB9FFBA);
             float wear=1-g.hp[side]/CoreBattleEngine.MAX_HP;
             if(wear>.18f){
                 for(int k=0;k<(int)(wear*9)+1;k++){
@@ -138,20 +165,24 @@ public final class CoreBattleRenderer {
                 }
             }
             face(c,g.entrantAtCore[side]<entrants.size()?entrants.get(g.entrantAtCore[side]).racer.avatar:null,
-                x,y-6,24,0xFF060B12);
+                x,y+58,29,0xFF030304);
         }
         for(CoreBattleEngine.Armor a:g.armor){
             if(a.hp<=0)continue;
             int team=TEAM[a.team];
-            block(c,a.x,a.y,a.w,a.h,4,0xFF1B2636);
+            block(c,a.x,a.y,a.w,a.h,3,0xFF08090B);
             float ratio=a.hp/a.maxHp;
             block(c,a.x+3,a.y+3,(a.w-6),Math.max(2,(a.h-6)*ratio),3,opacity(team,190));
-            block(c,a.x+a.w*.35f,a.y+a.h*.35f,a.w*.3f,a.h*.3f,2,0xFFCFDCE6);
+            block(c,a.x+a.w*.35f,a.y+a.h*.35f,a.w*.3f,a.h*.3f,2,0xFFE4E6E8);
         }
         // Numerous real moving marbles, color-coded by team.
         for(CoreBattleEngine.Marble m:g.marbles){
             if(!m.active)continue;
             int color=TEAM[m.side];
+            stroke(c,m.x-m.vx*.033f,m.y-m.vy*.033f,m.x,m.y,
+                Math.max(3,m.r*.9f),opacity(color,56));
+            stroke(c,m.x-m.vx*.015f,m.y-m.vy*.015f,m.x,m.y,
+                Math.max(3,m.r*.72f),opacity(color,125));
             disc(c,m.x+1.5f,m.y+2.5f,m.r+2,0xAA02040A);
             disc(c,m.x,m.y,m.r,color);
             disc(c,m.x-m.r*.32f,m.y-m.r*.32f,Math.max(2,m.r*.25f),0xEFFFFFFF);
@@ -162,51 +193,50 @@ public final class CoreBattleRenderer {
                 opacity(spark.color,255*Math.min(1,spark.life)));
         }
         // Bottom void consumes marbles immediately in physics.
-        block(c,0,CoreBattleEngine.BOTTOM,1080,60,0,0xFF030406);
+        block(c,0,CoreBattleEngine.BOTTOM,1080,75,0,0xFF020202);
         for(int i=0;i<12;i++){
             float x=40+i*92;
             stroke(c,x,CoreBattleEngine.BOTTOM+12,x+39,CoreBattleEngine.BOTTOM+35,7,0xFFFF7F42);
         }
-        title(c,"ZONA DE DESCARTE",540,CoreBattleEngine.BOTTOM+57,30,0xFFFFC97E,true);
+        title(c,"TRASH   ●   DESCARTE VISÍVEL   ●   TRASH",540,
+            CoreBattleEngine.BOTTOM+57,24,0xFFFFC97E,true);
     }
     private void hud(Canvas c,float h,CoreBattleEngine game,List<ModeEngine.Orb> entrants){
-        block(c,12,10,1056,207,22,0xEE111A28);
-        title(c,"CORE DESTRUCTION",38,62,48,Color.WHITE,false);
+        block(c,0,0,1080,159,0,0xFF050609);
+        title(c,"MARBLE LAB  /  CORE DESTRUCTION",540,43,34,Color.WHITE,true);
         int secs=(int)Math.ceil(game.remaining());
-        title(c,String.format(Locale.US,"%02d:%02d",secs/60,secs%60),976,69,50,0xFFFFE18C,true);
+        title(c,String.format(Locale.US,"%02d:%02d",secs/60,secs%60),
+            540,98,47,0xFFE9E9E9,true);
         for(int side=0;side<2;side++){
-            int color=TEAM[side];float x=side==0?36:560;
-            int racerIndex=game.entrantAtCore[side];
-            String name=racerIndex<entrants.size()?entrants.get(racerIndex).racer.name:"TIME "+(side+1);
-            title(c,clip(name,16).toUpperCase(Locale.ROOT),x,119,34,color,false);
-            block(c,x,133,474,28,9,0xFF313F50);
-            block(c,x,133,Math.max(1,474*game.hp[side]/CoreBattleEngine.MAX_HP),
-                28,9,color);
-            title(c,"HP "+Math.round(game.hp[side])+" / "+Math.round(CoreBattleEngine.MAX_HP)+
-                "   ● "+game.active[side]+"  ARM "+String.format(Locale.US,"%.1f",game.armorTier[side]),
-                x,192,23,Color.WHITE,false);
+            int color=TEAM[side],idx=game.entrantAtCore[side];
+            float x=side==0?27:570;
+            String name=idx<entrants.size()?entrants.get(idx).racer.name:"TIME "+(side+1);
+            title(c,clip(name,13).toUpperCase(Locale.ROOT),x,91,32,color,false);
+            block(c,x,113,483,17,4,0xFF25272C);
+            block(c,x,113,Math.max(0,483*game.hp[side]/CoreBattleEngine.MAX_HP),
+                17,4,color);
+            title(c,"CORE "+Math.round(game.hp[side])+" HP   •   "+game.active[side]+" BOLAS",
+                x,153,23,0xFFCDCDCD,false);
         }
-        float footer=h-206;
-        block(c,13,footer,1054,192,22,0xEE111A28);
-        title(c,"OBJETOS EM CENA: "+game.marbles.size()+" / 600",40,footer+52,
-            31,0xFFD6E9F5,false);
+        float footer=h-97f;
+        block(c,0,footer,1080,97,0,0xF807080A);
+        if(game.eventTimer>0f)
+            title(c,game.event,540,footer+39,36,0xFFECECEC,true);
+        else title(c,"MÁQUINAS  •  COLISÃO REAL  •  NÚCLEOS",
+            540,footer+39,27,0xFFABB2BA,true);
         title(c,"PLACAR  "+game.winTotals[game.entrantAtCore[0]]+
-            "  ×  "+game.winTotals[game.entrantAtCore[1]],1040,
-            footer+52,32,0xFFF5DB8C,true);
-        title(c,game.eventTimer>0?game.event:"SERRAS • HÉLICES • BOOSTERS • PORTÕES",
-            540,footer+112,36,Color.WHITE,true);
-        title(c,"ONDAS 17s • GERADOR 0,2s • BOOST DE REVIRAVOLTA",540,footer+159,
-            27,0xFF9CC0D3,true);
+            " : "+game.winTotals[game.entrantAtCore[1]]+
+            "  •  ONDAS A CADA 14s",540,footer+76,22,0xFF888B93,true);
         if(game.finished){
-            block(c,85,h*.38f,995,290,26,0xF50C1725);
-            title(c,"NÚCLEO VENCEDOR",540,h*.38f+77,59,
+            block(c,85,h*.41f,910,232,16,0xF50D0D11);
+            title(c,"NÚCLEO VENCEDOR",540,h*.41f+67,47,
                 TEAM[Math.max(0,game.physicalWinner)],true);
-            String who=game.winner<entrants.size()?
+            String who=game.winner>=0&&game.winner<entrants.size()?
                 entrants.get(game.winner).racer.name:"EQUIPE";
-            title(c,clip(who,17).toUpperCase(Locale.ROOT),540,h*.38f+169,
-                72,Color.WHITE,true);
-            title(c,"BATALHA ENCERRADA",540,h*.38f+245,
-                31,0xFFDBE7F4,true);
+            title(c,clip(who,16).toUpperCase(Locale.ROOT),540,h*.41f+151,
+                66,Color.WHITE,true);
+            title(c,"BATALHA ENCERRADA",540,h*.41f+202,
+                26,0xFFCCCCCC,true);
         }
     }
     public void render(Canvas original,CoreBattleEngine engine,List<ModeEngine.Orb> entrants){
@@ -217,9 +247,10 @@ public final class CoreBattleRenderer {
         float h=original.getHeight()/global;
         Canvas c=original;
         c.drawColor(BG);
-        float available=h-425;
-        float sc=Math.min(1f,available/(CoreBattleEngine.BOTTOM-CoreBattleEngine.TOP+60));
-        float offsetY=220+(available-(CoreBattleEngine.BOTTOM-CoreBattleEngine.TOP+60)*sc)*.5f;
+        float available=h-260f;
+        float worldHeight=CoreBattleEngine.BOTTOM-CoreBattleEngine.TOP+85f;
+        float sc=Math.min(1f,available/worldHeight);
+        float offsetY=164f+(available-worldHeight*sc)*.5f;
         c.save();
         c.translate(540,offsetY);
         c.scale(sc,sc);
