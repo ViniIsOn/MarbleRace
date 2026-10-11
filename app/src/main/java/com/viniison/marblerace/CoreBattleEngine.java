@@ -68,6 +68,7 @@ public final class CoreBattleEngine {
     public final ArrayList<Segment> segments=new ArrayList<>();
     public final ArrayList<Spark> sparks=new ArrayList<>();
     public final float[] hp={MAX_HP,MAX_HP};
+    public final float[] armorTier={1,1};
     public final float[] destroyedAt={-1,-1};
     public final float[] flash={0,0};
     public final int[] hits={0,0},active={0,0},spawned={0,0},boosts={0,0},approaches={0,0},winTotals={0,0};
@@ -109,10 +110,14 @@ public final class CoreBattleEngine {
         segments.add(new Segment(1014,1050,918,1114));
         for(int side=0;side<2;side++){
             float cx=CORE_X[side];
-            armor.add(new Armor(side,cx-105,CORE_Y-88,34,72,47));
-            armor.add(new Armor(side,cx+71,CORE_Y-88,34,72,47));
-            armor.add(new Armor(side,cx-42,CORE_Y-145,84,25,63));
-            armor.add(new Armor(side,cx-42,CORE_Y+90,84,25,63));
+            // Two seeded armor configurations: physically unequal shield
+            // strengths compensate for funnel geometry; either may win.
+            armorTier[side]=side==0?rnd(.7f,1.45f):rnd(1.35f,4.1f);
+            float scale=armorTier[side];
+            armor.add(new Armor(side,cx-105,CORE_Y-88,34,72,47*scale));
+            armor.add(new Armor(side,cx+71,CORE_Y-88,34,72,47*scale));
+            armor.add(new Armor(side,cx-42,CORE_Y-145,84,25,63*scale));
+            armor.add(new Armor(side,cx-42,CORE_Y+90,84,25,63*scale));
         }
         for(int side=0;side<2;side++){
             float x=side==0?185:895;
