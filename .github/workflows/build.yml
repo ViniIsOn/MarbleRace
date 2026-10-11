@@ -52,7 +52,7 @@ jobs:
             tests/com/viniison/marblerace/RaceEngineSmokeTest.java
           java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.RaceEngineSmokeTest
 
-      - name: Test 32 real-physics core battles and replay (60-95s)
+      - name: Test 32 two-team core battles, no-vanish physics and replay (up to 120s)
         shell: bash
         run: |
           javac -encoding UTF-8 -d "$RUNNER_TEMP/marble-physics" \
