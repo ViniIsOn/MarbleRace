@@ -232,9 +232,11 @@ public final class CoreBattleEngine {
             // Team-specific impulse regardless of x: the funnels may deflect
             // a marble across the divider before it reaches the booster level.
             float target=CORE_X[1-m.side];
-            float desired=clamp((target-m.x)/.69f,-880,880);
-            m.vx=(m.side==0?1:-1)*Math.max(350,Math.abs(desired))+rnd(-80,80);
-            m.vy=clamp(m.vy,240,520);
+            // Physical aim depends on the current coordinate, never a forced
+            // direction. A marble already across the divider must NOT be
+            // launched away from the target core.
+            m.vx=clamp((target-m.x)/.78f,-890,890)+rnd(-65,65);
+            m.vy=clamp(m.vy,220,480);
             m.boosted=true;boosts[m.side]++;
             setEvent(m.side==0?"BOOST AZUL →":"← BOOST VERMELHO");
         }
