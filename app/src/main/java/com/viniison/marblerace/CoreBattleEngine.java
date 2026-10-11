@@ -179,9 +179,14 @@ public final class CoreBattleEngine {
         float base=side==0?258:822;
         addMarble(side,base+rnd(-85,85),220+rnd(-20,10));
     }
+    public float craneX(int side){
+        float center=CORE_X[side];
+        float phase=side==0?0f:3.1415927f;
+        return center+(float)Math.sin(cranePhase*.55f+phase)*60f;
+    }
     private void wave(int side,int count){
         if(active[side]>=MAX_PER_TEAM)return;
-        float base=side==0?270:810;
+        float base=craneX(side);
         int limit=Math.min(count,MAX_PER_TEAM-active[side]);
         for(int i=0;i<limit;i++){
             int col=i%10,row=i/10;
