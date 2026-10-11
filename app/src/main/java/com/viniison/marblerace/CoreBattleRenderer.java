@@ -125,7 +125,7 @@ public final class CoreBattleRenderer {
         saw(c,540,1045,35,g.cranePhase);
         float[][] prop={{280,770},{800,770},{540,985}};
         for(int i=0;i<prop.length;i++){
-            float ang=g.cranePhase*(i==1?-2.35f:2.35f)+i;
+            float ang=(i==1?-1f:1f)*g.cranePhase*2.35f + (i==2?1.5707963f:0f);
             float vx=(float)Math.cos(ang)*105f,vy=(float)Math.sin(ang)*105f;
             stroke(c,prop[i][0]-vx,prop[i][1]-vy,prop[i][0]+vx,prop[i][1]+vy,25,0xFF1D2533);
             stroke(c,prop[i][0]-vx,prop[i][1]-vy,prop[i][0]+vx,prop[i][1]+vy,13,0xFFB1C6D3);
