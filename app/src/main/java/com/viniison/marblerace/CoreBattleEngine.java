@@ -98,7 +98,7 @@ public final class CoreBattleEngine {
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
-        centralSpin=(seed&1L)==0L?1:-1;
+        centralSpin=(seed&2L)==0L?1:-1;
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         rng=new Random(seed ^ 0x53A1C4B17L);
