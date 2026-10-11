@@ -48,10 +48,46 @@ public final class CoreBattleSmokeTest {
             throw new AssertionError("Match did not finish");
         if(g.elapsed<CoreBattleEngine.MIN_DURATION||
            g.elapsed>CoreBattleEngine.MAX_DURATION+.034f)
-            throw new AssertionError("Game outside 60-95 seconds");
+            throw new AssertionError("Game outside 0-120 seconds");
         return new Result(g,peak);
     }
+    private static void physicsRegressions(){
+        // Historical bug: projectiles vanished mid-arena at age 19 seconds.
+        CoreBattleEngine g=new CoreBattleEngine(77);
+        for(int i=0;i<40;i++)g.advance(1f/30f);
+        if(g.marbles.isEmpty())throw new AssertionError("No spawned projectile");
+        CoreBattleEngine.Marble first=g.marbles.get(0);
+        first.x=120;first.y=420;first.vx=0;first.vy=0;first.age=28f;
+        int before=g.active[first.side];
+        g.advance(1f/30f);
+        if(!first.active || g.active[first.side]<before)
+            throw new AssertionError("In-arena marble vanished only because of its age");
+
+        // Cross-team balls must exchange impulses rather than passing through.
+        CoreBattleEngine cross=new CoreBattleEngine(91);
+        CoreBattleEngine.Marble a=new CoreBattleEngine.Marble(
+            9101,0,405,425,110,0,15,1);
+        CoreBattleEngine.Marble b=new CoreBattleEngine.Marble(
+            9102,1,429,425,-110,0,15,1);
+        cross.marbles.add(a);cross.marbles.add(b);
+        cross.active[0]++;cross.active[1]++;
+        cross.advance(1f/30f);
+        if(a.vx>=0||b.vx<=0)
+            throw new AssertionError("Opposing marbles did not collide physically");
+
+        // No scripted difference in core defenses or spawn rate.
+        CoreBattleEngine equal=new CoreBattleEngine(13);
+        if(equal.armorTier[0]!=equal.armorTier[1])
+            throw new AssertionError("Unfair invisible armor tiers");
+        equal.hp[0]=150;
+        for(int i=0;i<150;i++)equal.advance(1f/30f);
+        if(equal.spawned[0]!=equal.spawned[1])
+            throw new AssertionError("Losing team received an invisible spawn boost");
+        System.out.println("PASS: no phantom despawns; cross-team collisions; symmetric defenses/spawn");
+    }
+
     public static void main(String[] args){
+        physicsRegressions();
         int[] victories={0,0};
         int totalHits=0,maxPeak=0;
         for(int k=0;k<32;k++){
