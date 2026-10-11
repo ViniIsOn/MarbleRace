@@ -292,10 +292,24 @@ public final class CoreBattleEngine {
         float speed=(float)Math.sqrt(dist2(m.vx,m.vy));
         // Incoming marbles must earn damage physically, not via a random timer.
         float power=clamp((3.5f+speed*.023f)*m.mass*.95f,3,58);
-        boolean protectedCore=false;
-        for(Armor a:armor)
-            if(a.team==target&&a.hp>0){protectedCore=true;break;}
-        if(protectedCore)power*=.045f; // armor substantially deflects until physically broken
+        // Every intact armor plate has collision HP and also powers the
+        // defensive core shield. A projectile striking a shielded core drains
+        // a plate, not the core. Only exposed cores take actual HP damage.
+        for(Armor plate:armor){
+            if(plate.team==target && plate.hp>0){
+                plate.hp=Math.max(0,plate.hp-power*.72f);
+                flash[target]=.10f;
+                hits[m.side]++;
+                m.active=false;active[m.side]--;
+                particle(m.x,m.y,m.side==0?0xFF65CFFF:0xFFFF5B7D,3);
+                if(plate.hp==0){
+                    setEvent("ESCUDO ROMPIDO!");
+                    particle(plate.x+plate.w*.5f,plate.y+plate.h*.5f,
+                        m.side==0?0xFF65CFFF:0xFFFF5B7D,10);
+                }
+                return;
+            }
+        }
         hp[target]=Math.max(0,hp[target]-power);
         flash[target]=.16f;
         hits[m.side]++;
