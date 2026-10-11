@@ -295,7 +295,7 @@ public final class CoreBattleEngine {
         boolean protectedCore=false;
         for(Armor a:armor)
             if(a.team==target&&a.hp>0){protectedCore=true;break;}
-        if(protectedCore)power*=.22f;
+        if(protectedCore)power*=.045f; // armor substantially deflects until physically broken
         hp[target]=Math.max(0,hp[target]-power);
         flash[target]=.16f;
         hits[m.side]++;
