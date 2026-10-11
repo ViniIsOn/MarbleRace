@@ -67,7 +67,7 @@ public final class CoreBattleEngine {
     public final ArrayList<Spark> sparks=new ArrayList<>();
     public final float[] hp={MAX_HP,MAX_HP};
     public final float[] flash={0,0};
-    public final int[] hits={0,0},active={0,0},spawned={0,0},winTotals={0,0};
+    public final int[] hits={0,0},active={0,0},spawned={0,0},boosts={0,0},winTotals={0,0};
     public float elapsed=0,cranePhase=0;
     public int winner=-1;
     public boolean finished=false;
@@ -86,7 +86,7 @@ public final class CoreBattleEngine {
         rng.setSeed(seed ^ 0x53A1C4B17L);
         marbles.clear();armor.clear();pegs.clear();segments.clear();sparks.clear();
         Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);
-        Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);
+        Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);
         nextSpawn[0]=.55f;nextSpawn[1]=.65f;nextWave=15;
         elapsed=0;cranePhase=0;winner=-1;finished=false;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
@@ -233,7 +233,7 @@ public final class CoreBattleEngine {
                 // Aim at the opponent's protected core from this exact location.
                 // Replaces a fixed bias that previously favored the left side.
                 m.vx=clamp((CORE_X[1]-m.x)/.69f,400,880)+rnd(-80,80);
-                m.vy=clamp(m.vy,240,520);m.boosted=true;
+                m.vy=clamp(m.vy,240,520);m.boosted=true;boosts[m.side]++;
                 setEvent("BOOST AZUL →");
             }else if(m.side==1 && m.x>560 && m.x<940 && !m.boosted){
                 m.vx=clamp((CORE_X[0]-m.x)/.69f,-880,-400)+rnd(-80,80);
