@@ -17,7 +17,7 @@ public final class CoreBattleEngine {
     public static final int MAX_PER_TEAM=300, MAX_PARTICLES=96;
     public static final float MIN_X=42,MAX_X=1038,TOP=175,BOTTOM=1450;
     private static final float BALL_MIN_R=11f, BALL_MAX_R=17f;
-    private static final float CELL=52f, MAX_SPEED=760f;
+    private static final float CELL=52f, MAX_SPEED=1075f;
     private static final int COLS=22,ROWS=31;
     private static final float GRAVITY=440f,RESTITUTION=.82f;
     private final Random rng;
@@ -230,10 +230,14 @@ public final class CoreBattleEngine {
         // Booster strips along the central crossing lanes push marbles at enemy.
         if(m.y>805 && m.y<860){
             if(m.side==0 && m.x>140 && m.x<520 && !m.boosted){
-                m.vx+=720;m.vy+=30;m.boosted=true;
+                // Aim at the opponent's protected core from this exact location.
+                // Replaces a fixed bias that previously favored the left side.
+                m.vx=clamp((CORE_X[1]-m.x)/.69f,400,880)+rnd(-80,80);
+                m.vy=clamp(m.vy,240,520);m.boosted=true;
                 setEvent("BOOST AZUL →");
             }else if(m.side==1 && m.x>560 && m.x<940 && !m.boosted){
-                m.vx-=720;m.vy+=30;m.boosted=true;
+                m.vx=clamp((CORE_X[0]-m.x)/.69f,-880,-400)+rnd(-80,80);
+                m.vy=clamp(m.vy,240,520);m.boosted=true;
                 setEvent("← BOOST VERMELHO");
             }
         }
