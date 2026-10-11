@@ -330,6 +330,11 @@ public final class CoreBattleEngine {
                 for(int x=Math.max(0,cx-1);x<=Math.min(COLS-1,cx+1);x++){
                     for(Marble n:cells[y*COLS+x]){
                         if(n.id<=m.id||!n.active)continue;
+                        // Projectiles from opposing launch lanes pass one another.
+                        // Same-team marbles still collide elastically and interact
+                        // with every physical barrier, gate, saw and core.
+                        // This prevents a persistent front-to-front traffic jam.
+                        if(n.side!=m.side)continue;
                         float dx=m.x-n.x,dy=m.y-n.y,range=m.r+n.r,d2=dist2(dx,dy);
                         if(d2>=range*range)continue;
                         float distance=(float)Math.sqrt(Math.max(.01f,d2));
