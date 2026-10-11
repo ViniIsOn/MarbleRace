@@ -66,6 +66,7 @@ public final class CoreBattleEngine {
     public final ArrayList<Segment> segments=new ArrayList<>();
     public final ArrayList<Spark> sparks=new ArrayList<>();
     public final float[] hp={MAX_HP,MAX_HP};
+    public final float[] destroyedAt={-1,-1};
     public final float[] flash={0,0};
     public final int[] hits={0,0},active={0,0},spawned={0,0},boosts={0,0},approaches={0,0},winTotals={0,0};
     public final float[] approachSumX={0,0};
@@ -86,7 +87,7 @@ public final class CoreBattleEngine {
     public void reset(){
         rng.setSeed(seed ^ 0x53A1C4B17L);
         marbles.clear();armor.clear();pegs.clear();segments.clear();sparks.clear();
-        Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);
+        Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);Arrays.fill(destroyedAt,-1f);
         Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
         nextSpawn[0]=.55f;nextSpawn[1]=.65f;nextWave=15;
         elapsed=0;cranePhase=0;winner=-1;finished=false;event="PREPARE-SE";
@@ -141,8 +142,10 @@ public final class CoreBattleEngine {
         if(hp[team]+90f<hp[1-team])r*=1.22f;
         // Wide enough spacing prevents pathological overlap at spawners.
         float dir=team==0?1f:-1f;
+        boolean comeback=hp[team]+90f<hp[1-team];
+        float mass=r*r/175f*(comeback?1.40f:1f);
         marbles.add(new Marble(++idSequence,team,x,y,dir*rnd(35,90),
-            rnd(35,95),r,r*r/175f));
+            rnd(35,95),r,mass));
         active[team]++;spawned[team]++;
     }
     private void spawnOne(int side){
@@ -289,7 +292,8 @@ public final class CoreBattleEngine {
         hits[m.side]++;
         particle(m.x,m.y,m.side==0?0xFF65CFFF:0xFFFF5B7D,4);
         m.active=false;active[m.side]--;
-        if(hp[target]==0){
+        if(hp[target]==0 && destroyedAt[target]<0){
+            destroyedAt[target]=elapsed;
             setEvent("NÚCLEO DESTRUÍDO!");
             particle(cx,CORE_Y,target==0?0xFFFFD050:0xFFA950F5,65);
         }
@@ -374,7 +378,15 @@ public final class CoreBattleEngine {
     private void endMatch(){
         if(finished)return;
         finished=true;
-        if(hp[0]!=hp[1])winner=hp[0]>hp[1]?0:1;
+        // The core destroyed FIRST loses, even if both cores reach zero before
+        // the 60-second minimum presentation window has ended.
+        if(destroyedAt[0]>=0 || destroyedAt[1]>=0){
+            if(destroyedAt[0]<0)winner=0;
+            else if(destroyedAt[1]<0)winner=1;
+            else if(destroyedAt[0]!=destroyedAt[1])
+                winner=destroyedAt[0]<destroyedAt[1]?1:0;
+            else winner=hits[0]>=hits[1]?0:1;
+        }else if(hp[0]!=hp[1])winner=hp[0]>hp[1]?0:1;
         else if(hits[0]!=hits[1])winner=hits[0]>hits[1]?0:1;
         else winner=rng.nextBoolean()?0:1;
         setEvent("VITÓRIA DO NÚCLEO");
