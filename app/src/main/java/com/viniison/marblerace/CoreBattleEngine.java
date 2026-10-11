@@ -25,6 +25,8 @@ public final class CoreBattleEngine {
     private float accumulator=0f;
     private final Random rng;
     private final long seed;
+    /** Direction of the central mechanical paddle, seeded rather than score-biased. */
+    public final int centralSpin;
     /** Entrants swap core positions by match seed to distribute any map-side advantage. */
     public final int[] entrantAtCore;
     /** The arena never secretly changes team strengths based on the score. */
@@ -96,6 +98,7 @@ public final class CoreBattleEngine {
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
+        centralSpin=(seed&1L)==0L?1:-1;
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         rng=new Random(seed ^ 0x53A1C4B17L);
@@ -136,9 +139,9 @@ public final class CoreBattleEngine {
             armor.add(new Armor(side,cx-42,CORE_Y+90,84,25,63*scale));
         }
         for(int side=0;side<2;side++){
-            float x=side==0?185:895;
             for(int i=0;i<8;i++){
-                float px=x+(i%3-1)*65f;
+                float mirroredLeft=185+(i%3-1)*65f;
+                float px=side==0?mirroredLeft:1080f-mirroredLeft;
                 float py=600+(i/3)*108;
                 pegs.add(new Peg(px,py,13+i%2*4));
             }
@@ -248,7 +251,7 @@ public final class CoreBattleEngine {
         // Two rotating rigid paddles with tangential velocity transfer.
         float[][] prop={{280,770},{800,770},{540,985}};
         for(int i=0;i<prop.length;i++){
-            float ang=(i==1?-1f:1f)*cranePhase*2.35f + (i==2?1.5707963f:0f);
+            float ang=(i==2?centralSpin:(i==1?-1:1))*cranePhase*2.35f + (i==2?1.5707963f:0f);
             float vx=(float)Math.cos(ang)*105f,vy=(float)Math.sin(ang)*105f;
             float x=prop[i][0],y=prop[i][1];
             float ds=dist2(m.x-x,m.y-y);
