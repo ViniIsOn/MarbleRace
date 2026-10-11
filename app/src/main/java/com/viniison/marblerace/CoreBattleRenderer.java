@@ -182,7 +182,8 @@ public final class CoreBattleRenderer {
             block(c,x,133,Math.max(1,474*game.hp[side]/CoreBattleEngine.MAX_HP),
                 28,9,color);
             title(c,"HP "+Math.round(game.hp[side])+" / "+Math.round(CoreBattleEngine.MAX_HP)+
-                "   ● "+game.active[side],x,192,26,Color.WHITE,false);
+                "   ● "+game.active[side]+"  ARM "+String.format(Locale.US,"%.1f",game.armorTier[side]),
+                x,192,23,Color.WHITE,false);
         }
         float footer=h-206;
         block(c,13,footer,1054,192,22,0xEE111A28);
