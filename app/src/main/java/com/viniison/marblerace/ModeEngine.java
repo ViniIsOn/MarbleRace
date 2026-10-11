@@ -15,7 +15,7 @@ public final class ModeEngine {
     public static final String[] DESCRIPTIONS={
         "Contagem no aro, depois pista com obstáculos e chegada",
         "A arena encolhe até sobrar um vencedor",
-        "Duelo amarelo vs roxo: lasers, serras, escudos, bombas e guindaste (1-2 min)",
+        "Física 2D • até 300 bolinhas por time • núcleos e armaduras",
         "Minhocas coloridas disputam uma pista",
         "Bicicletas enfrentam rampas e obstáculos"
     };
