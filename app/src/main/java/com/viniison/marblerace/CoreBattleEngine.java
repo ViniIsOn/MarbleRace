@@ -22,6 +22,8 @@ public final class CoreBattleEngine {
     private static final float GRAVITY=440f,RESTITUTION=.82f;
     private final Random rng;
     private final long seed;
+    /** Seeded strength of comeback ammunition, visible as heavier marbles. */
+    public final float comebackMassPower;
     @SuppressWarnings("unchecked")
     private final ArrayList<Marble>[] cells=(ArrayList<Marble>[])new ArrayList[COLS*ROWS];
     public static final class Marble {
@@ -80,7 +82,9 @@ public final class CoreBattleEngine {
     private boolean burstAtFinish=false;
 
     public CoreBattleEngine(long seed){
-        this.seed=seed;rng=new Random(seed ^ 0x53A1C4B17L);
+        this.seed=seed;
+        comebackMassPower=1.55f+((seed>>>4)&1023L)/1023f*1.6f;
+        rng=new Random(seed ^ 0x53A1C4B17L);
         for(int i=0;i<cells.length;i++)cells[i]=new ArrayList<>();
         reset();
     }
@@ -143,7 +147,7 @@ public final class CoreBattleEngine {
         // Wide enough spacing prevents pathological overlap at spawners.
         float dir=team==0?1f:-1f;
         boolean comeback=hp[team]+90f<hp[1-team];
-        float mass=r*r/175f*(comeback?1.40f:1f);
+        float mass=r*r/175f*(comeback?comebackMassPower:1f);
         marbles.add(new Marble(++idSequence,team,x,y,dir*rnd(35,90),
             rnd(35,95),r,mass));
         active[team]++;spawned[team]++;
