@@ -232,6 +232,11 @@ final class FastVideoExporter {
             muxer=new MediaMuxer(descriptor.getFileDescriptor(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             RaceEngine race=mode==0?new RaceEngine(racers,track,seed):null;
             ModeEngine mini=mode==0?null:new ModeEngine(racers,mode-1,seed);
+            if(mini!=null && mini.coreBattle!=null){
+                android.content.SharedPreferences scores=ctx.getSharedPreferences("core_score_v1",0);
+                mini.coreBattle.winTotals[0]=scores.getInt("blue",0);
+                mini.coreBattle.winTotals[1]=scores.getInt("red",0);
+            }
             RaceRenderer renderer=new RaceRenderer();
             ModeRenderer modeRenderer=new ModeRenderer();
             if(race!=null)race.running=true;
@@ -241,7 +246,7 @@ final class FastVideoExporter {
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
             int podium=0,frameCount=0;
             // Selected mode 3 is Core Destruction: 60-90 seconds plus a short winner card.
-            final int maxFrames=(mode==3?95:(mode==0||mode==1?70:45))*FPS;
+            final int maxFrames=(mode==3?100:(mode==0||mode==1?70:45))*FPS;
             for(int frame=0;frame<maxFrames;frame++){
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
                 if(race!=null){race.advance(1f/FPS);renderer.render(canvas,race,true);}
