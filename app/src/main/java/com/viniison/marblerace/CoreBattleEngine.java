@@ -286,7 +286,7 @@ public final class CoreBattleEngine {
         if(dist2(dx,dy)>rad*rad)return;
         float speed=(float)Math.sqrt(dist2(m.vx,m.vy));
         // Incoming marbles must earn damage physically, not via a random timer.
-        float power=clamp((3.5f+speed*.023f)*m.mass*.95f,3,28);
+        float power=clamp((3.5f+speed*.023f)*m.mass*.95f,3,58);
         boolean protectedCore=false;
         for(Armor a:armor)
             if(a.team==target&&a.hp>0){protectedCore=true;break;}
