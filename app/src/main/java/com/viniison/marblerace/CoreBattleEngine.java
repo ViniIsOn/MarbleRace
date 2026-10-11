@@ -1,6 +1,7 @@
 package com.viniison.marblerace;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -10,32 +11,37 @@ import java.util.Random;
  * No Android dependencies: run collision/spawner tests on desktop CI.
  */
 public final class CoreBattleEngine {
-    public static final float MIN_DURATION=60f,MAX_DURATION=95f;
+    public static final float MIN_DURATION=0f,MAX_DURATION=120f;
     public static final float MAX_HP=1000f;
     public static final float CORE_Y=1190f, CORE_RADIUS=76f;
     public static final float[] CORE_X={257f,823f};
-    public static final int MAX_PER_TEAM=300, MAX_PARTICLES=96;
+    public static final int MAX_PER_TEAM=300, SOFT_PER_TEAM=220, MAX_PARTICLES=160;
     public static final float MIN_X=42,MAX_X=1038,TOP=175,BOTTOM=1450;
-    private static final float BALL_MIN_R=11f, BALL_MAX_R=17f;
-    private static final float CELL=52f, MAX_SPEED=1075f;
+    private static final float BALL_MIN_R=10f, BALL_MAX_R=15f;
+    private static final float CELL=52f, MAX_SPEED=950f;
     private static final int COLS=22,ROWS=31;
-    private static final float GRAVITY=440f,RESTITUTION=.82f;
+    private static final float GRAVITY=520f,RESTITUTION=.80f;
+    private static final float TICK=1f/60f;
+    private float accumulator=0f;
     private final Random rng;
     private final long seed;
     /** Entrants swap core positions by match seed to distribute any map-side advantage. */
     public final int[] entrantAtCore;
-    /** Seeded strength of comeback ammunition, visible as heavier marbles. */
-    public final float comebackMassPower;
+    /** The arena never secretly changes team strengths based on the score. */
     @SuppressWarnings("unchecked")
     private final ArrayList<Marble>[] cells=(ArrayList<Marble>[])new ArrayList[COLS*ROWS];
     public static final class Marble {
         public float x,y,vx,vy,r,mass,age;
-        public final int side;
+        public int side;
         public boolean active=true,boosted=false,approached=false;
-        public final int id;
+        public int id;
         Marble(int id,int side,float x,float y,float vx,float vy,float r,float mass){
             this.id=id;this.side=side;this.x=x;this.y=y;
             this.vx=vx;this.vy=vy;this.r=r;this.mass=mass;
+        }
+        void reuse(int id,int side,float x,float y,float vx,float vy,float r,float mass){
+            this.id=id;this.side=side;this.x=x;this.y=y;this.vx=vx;this.vy=vy;
+            this.r=r;this.mass=mass;age=0;active=true;boosted=false;approached=false;
         }
     }
     public static final class Armor {
@@ -65,6 +71,9 @@ public final class CoreBattleEngine {
         }
     }
     public final ArrayList<Marble> marbles=new ArrayList<>();
+    private final Marble[] allMarbles=new Marble[MAX_PER_TEAM*2];
+    private final ArrayDeque<Marble> recycled=new ArrayDeque<>(MAX_PER_TEAM*2);
+    public final int[] drained={0,0}, consumed={0,0};
     public final ArrayList<Armor> armor=new ArrayList<>();
     public final ArrayList<Peg> pegs=new ArrayList<>();
     public final ArrayList<Segment> segments=new ArrayList<>();
@@ -81,24 +90,28 @@ public final class CoreBattleEngine {
     public String event="PREPARE-SE",lastEvent="PREPARE-SE";
     public float eventTimer=0;
     private final float[] nextSpawn={0,0};
-    private int nextWave=15, idSequence=0, frames=0;
+    private float nextWave=12f;
+    private int idSequence=0, frames=0;
     private boolean burstAtFinish=false;
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
-        comebackMassPower=1.55f+((seed>>>4)&1023L)/1023f*1.6f;
         rng=new Random(seed ^ 0x53A1C4B17L);
         for(int i=0;i<cells.length;i++)cells[i]=new ArrayList<>();
+        for(int i=0;i<allMarbles.length;i++)allMarbles[i]=new Marble(0,0,0,0,0,0,12,1);
         reset();
     }
     public void reset(){
         rng.setSeed(seed ^ 0x53A1C4B17L);
-        marbles.clear();armor.clear();pegs.clear();segments.clear();sparks.clear();
+        marbles.clear();recycled.clear();
+        for(Marble m:allMarbles){m.active=false;recycled.addLast(m);}
+        armor.clear();pegs.clear();segments.clear();sparks.clear();
         Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);Arrays.fill(destroyedAt,-1f);
         Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
-        nextSpawn[0]=.55f;nextSpawn[1]=.65f;nextWave=15;
+        Arrays.fill(drained,0);Arrays.fill(consumed,0);accumulator=0;
+        nextSpawn[0]=.55f;nextSpawn[1]=.55f;nextWave=12f;
         elapsed=0;cranePhase=0;winner=-1;physicalWinner=-1;finished=false;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
         // Outer border + central separator; funnels guide opposite trajectories.
@@ -114,10 +127,9 @@ public final class CoreBattleEngine {
         segments.add(new Segment(1014,1050,918,1114));
         for(int side=0;side<2;side++){
             float cx=CORE_X[side];
-            // Two seeded armor configurations: physically unequal shield
-            // strengths compensate for funnel geometry; either may win.
-            armorTier[side]=side==0?rnd(.7f,1.45f):rnd(1.75f,6.0f);
-            float scale=armorTier[side];
+            // Identical armor on both sides; fairness comes from mirrored geometry.
+            armorTier[side]=1f;
+            float scale=1f;
             armor.add(new Armor(side,cx-105,CORE_Y-88,34,72,47*scale));
             armor.add(new Armor(side,cx+71,CORE_Y-88,34,72,47*scale));
             armor.add(new Armor(side,cx-42,CORE_Y-145,84,25,63*scale));
@@ -147,18 +159,20 @@ public final class CoreBattleEngine {
                 (float)Math.sin(a)*speed,rnd(.35f,1f),color));
         }
     }
+    private void removeMarble(Marble m,boolean coreHit){
+        if(!m.active)return;
+        m.active=false;
+        active[m.side]--;
+        if(coreHit)consumed[m.side]++;else drained[m.side]++;
+    }
     private void addMarble(int team,float x,float y){
-        if(active[team]>=MAX_PER_TEAM)return;
+        if(active[team]>=MAX_PER_TEAM||recycled.isEmpty())return;
         float r=rnd(BALL_MIN_R,BALL_MAX_R);
-        // Comeback waves physically grow larger/heavier (therefore delivering
-        // more momentum to armor and cores), instead of scripted extra damage.
-        if(hp[team]+90f<hp[1-team])r*=1.22f;
-        // Wide enough spacing prevents pathological overlap at spawners.
         float dir=team==0?1f:-1f;
-        boolean comeback=hp[team]+90f<hp[1-team];
-        float mass=r*r/175f*(comeback?comebackMassPower:1f);
-        marbles.add(new Marble(++idSequence,team,x,y,dir*rnd(35,90),
-            rnd(35,95),r,mass));
+        float mass=r*r/169f;
+        Marble m=recycled.removeLast();
+        m.reuse(++idSequence,team,x,y,dir*rnd(35,90),rnd(35,95),r,mass);
+        marbles.add(m);
         active[team]++;spawned[team]++;
     }
     private void spawnOne(int side){
@@ -172,7 +186,7 @@ public final class CoreBattleEngine {
         for(int i=0;i<limit;i++){
             int col=i%10,row=i/10;
             addMarble(side,base+(col-4.5f)*32f,
-                365-row*29f);
+                365-row*30f);
         }
     }
     private void cap(Marble m){
@@ -247,18 +261,14 @@ public final class CoreBattleEngine {
             segmentCollision(m,80,910,380,910,10,5);
             segmentCollision(m,700,910,1000,910,10,5);
         }
-        // Booster strips along the central crossing lanes push marbles at enemy.
+        // Symmetric fixed-vector accelerators. The colored arrows show this
+        // impulse to the viewer; neither HP nor team ID changes the force.
         if(m.y>805 && m.y<860 && !m.boosted){
-            // Team-specific impulse regardless of x: the funnels may deflect
-            // a marble across the divider before it reaches the booster level.
-            float target=CORE_X[1-m.side];
-            // Physical aim depends on the current coordinate, never a forced
-            // direction. A marble already across the divider must NOT be
-            // launched away from the target core.
-            m.vx=clamp((target-m.x)/.78f,-890,890)+rnd(-65,65);
-            m.vy=clamp(m.vy,220,480);
+            float sign=m.x<540f?1f:-1f;
+            m.vx+=sign*700f;
+            m.vy=Math.max(m.vy,330f);
             m.boosted=true;boosts[m.side]++;
-            setEvent(m.side==0?"BOOST AZUL →":"← BOOST VERMELHO");
+            setEvent("ACELERADORES ATIVADOS");
         }
         for(Peg peg:pegs){
             if(Math.abs(m.y-peg.y)<55 && Math.abs(m.x-peg.x)<55)
@@ -296,29 +306,13 @@ public final class CoreBattleEngine {
         float speed=(float)Math.sqrt(dist2(m.vx,m.vy));
         // Incoming marbles must earn damage physically, not via a random timer.
         float power=clamp((3.5f+speed*.023f)*m.mass*.95f,3,58);
-        // Every intact armor plate has collision HP and also powers the
-        // defensive core shield. A projectile striking a shielded core drains
-        // a plate, not the core. Only exposed cores take actual HP damage.
-        for(Armor plate:armor){
-            if(plate.team==target && plate.hp>0){
-                plate.hp=Math.max(0,plate.hp-power*.72f);
-                flash[target]=.10f;
-                hits[m.side]++;
-                m.active=false;active[m.side]--;
-                particle(m.x,m.y,m.side==0?0xFF65CFFF:0xFFFF5B7D,3);
-                if(plate.hp==0){
-                    setEvent("ESCUDO ROMPIDO!");
-                    particle(plate.x+plate.w*.5f,plate.y+plate.h*.5f,
-                        m.side==0?0xFF65CFFF:0xFFFF5B7D,10);
-                }
-                return;
-            }
-        }
+        // Armor only protects when the projectile actually hits its rectangle.
+        // Never subtract HP from distant plates when a marble reaches this core.
         hp[target]=Math.max(0,hp[target]-power);
         flash[target]=.16f;
         hits[m.side]++;
         particle(m.x,m.y,m.side==0?0xFF65CFFF:0xFFFF5B7D,4);
-        m.active=false;active[m.side]--;
+        removeMarble(m,true);
         if(hp[target]==0 && destroyedAt[target]<0){
             destroyedAt[target]=elapsed;
             setEvent("NÚCLEO DESTRUÍDO!");
@@ -333,9 +327,11 @@ public final class CoreBattleEngine {
         if(m.y>=CORE_Y-95 && !m.approached){
             m.approached=true;approaches[m.side]++;approachSumX[m.side]+=m.x;
         }
-        if(m.y>BOTTOM+36||m.age>19){
-            // Void: remove immediately so object counts never grow forever.
-            m.active=false;active[m.side]--;return;
+        if(m.y>BOTTOM+36){
+            // Visible disposal conveyor at the bottom of the board. An ordinary
+            // in-arena marble must NEVER vanish just because it is 19s old.
+            removeMarble(m,false);
+            return;
         }
         for(Segment segment:segments){
             if(m.y>=Math.min(segment.y1,segment.y2)-m.r-20 &&
@@ -343,17 +339,7 @@ public final class CoreBattleEngine {
                 segmentCollision(m,segment.x1,segment.y1,segment.x2,segment.y2,7,0);
         }
         machinery(m);
-        // Directional booster field keeps momentum aimed toward the opponent.
-        // Team that is behind receives a stronger *physical* push, enabling
-        // actual comeback collisions instead of picking a winner by script.
-        if(m.boosted && m.y>865 && m.y<1145){
-            int enemy=1-m.side;
-            float deficit=Math.max(0,(hp[enemy]-hp[m.side])/MAX_HP);
-            float targetVx=clamp((CORE_X[enemy]-m.x)/.37f,-890,890);
-            float steering=clamp(dt*(3.1f+deficit*15f),0,.7f);
-            m.vx+=(targetVx-m.vx)*steering;
-            if(deficit>.20f)m.vy=Math.min(m.vy,540f-deficit*125f);
-        }
+        // No invisible steering toward the enemy or HP-dependent comeback.
         for(Armor a:armor)if(a.hp>0 && Math.abs(m.x-a.x)<a.w+38 && Math.abs(m.y-a.y)<a.h+38)
             damageArmor(m,a);
         damageCore(m,1-m.side);
@@ -375,11 +361,7 @@ public final class CoreBattleEngine {
                 for(int x=Math.max(0,cx-1);x<=Math.min(COLS-1,cx+1);x++){
                     for(Marble n:cells[y*COLS+x]){
                         if(n.id<=m.id||!n.active)continue;
-                        // Projectiles from opposing launch lanes pass one another.
-                        // Same-team marbles still collide elastically and interact
-                        // with every physical barrier, gate, saw and core.
-                        // This prevents a persistent front-to-front traffic jam.
-                        if(n.side!=m.side)continue;
+                        // All marbles are real rigid circles, even between teams.
                         float dx=m.x-n.x,dy=m.y-n.y,range=m.r+n.r,d2=dist2(dx,dy);
                         if(d2>=range*range)continue;
                         float distance=(float)Math.sqrt(Math.max(.01f,d2));
@@ -427,31 +409,37 @@ public final class CoreBattleEngine {
     }
     public void advance(float dt){
         if(finished)return;
-        dt=clamp(dt,0,.04f);
+        accumulator+=clamp(dt,0,.10f);
+        while(accumulator>=TICK && !finished){
+            fixedStep(TICK);
+            accumulator-=TICK;
+        }
+    }
+    private void fixedStep(float dt){
         elapsed+=dt;frames++;cranePhase+=dt*2.45f;
         eventTimer=Math.max(0,eventTimer-dt);
         for(int i=0;i<2;i++)flash[i]=Math.max(0,flash[i]-dt);
         for(int side=0;side<2;side++){
             while(elapsed>=nextSpawn[side]){
-                if(active[side]<MAX_PER_TEAM)spawnOne(side);
-                // Comeback phase: the trailing core activates a faster physical
-                // spawner, giving it more actual marbles rather than fake damage.
-                boolean behind=hp[side]+90f<hp[1-side];
-                nextSpawn[side]+=behind?.13f:.20f;
+                if(active[side]<SOFT_PER_TEAM)spawnOne(side);
+                nextSpawn[side]+=.18f;
             }
         }
         if(elapsed>=nextWave){
-            for(int side=0;side<2;side++)wave(side,50);
-            nextWave+=17;
-            setEvent("ONDA DE 50 BOLINHAS!");
+            for(int side=0;side<2;side++)wave(side,45);
+            nextWave+=14f;
+            setEvent("ONDA DE 45 BOLINHAS!");
         }
         for(Marble m:marbles)if(m.active)simulateMarble(m,dt);
         collideBalls();
-        // Garbage collection at most every 4 simulation frames.
-        if(frames%4==0)marbles.removeIf(m->!m.active);
+        // Return entities to the preallocated object pool, no per-spawn GC.
+        if(frames%4==0)marbles.removeIf(m->{
+            if(m.active)return false;
+            recycled.addLast(m);
+            return true;
+        });
         for(Spark p:sparks){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=195*dt;p.life-=dt;}
         sparks.removeIf(p->p.life<=0);
-        if(elapsed>=MAX_DURATION ||
-            (elapsed>=MIN_DURATION && (hp[0]<=0||hp[1]<=0)))endMatch();
+        if(elapsed>=MAX_DURATION || hp[0]<=0 || hp[1]<=0)endMatch();
     }
 }
