@@ -15,7 +15,7 @@ public final class ModeEngine {
     public static final String[] DESCRIPTIONS={
         "Contagem no aro, depois pista com obstáculos e chegada",
         "A arena encolhe até sobrar um vencedor",
-        "Acertar o núcleo central dá pontos",
+        "Duelo amarelo vs roxo: lasers, serras, escudos, bombas e guindaste (1-2 min)",
         "Minhocas coloridas disputam uma pista",
         "Bicicletas enfrentam rampas e obstáculos"
     };
@@ -41,6 +41,7 @@ public final class ModeEngine {
     public static final float INTRO_SECONDS=3f, TRANSITION_SECONDS=.65f;
     public enum RingPhase { COUNTDOWN, TRANSITION, RACING, FINISHED }
     public final RaceEngine ringRace;
+    public final CoreBattleEngine coreBattle;
     public RingPhase ringPhase(){
         if(mode!=RING)return RingPhase.RACING;
         if(ringRace!=null && !ringRace.balls.isEmpty() &&
@@ -61,6 +62,7 @@ public final class ModeEngine {
         this.seed=seed;
         for(RaceEngine.Racer racer:racers)orbs.add(new Orb(racer));
         ringRace=this.mode==RING?new RaceEngine(racers,0,seed^0x71A4BEEF5L):null;
+        coreBattle=this.mode==CORE?new CoreBattleEngine(seed):null;
         random=new Random(seed^(889L+this.mode*31L));
         reset();
     }
@@ -71,6 +73,7 @@ public final class ModeEngine {
         random.setSeed(seed^(889L+mode*31L));
         elapsed=0;running=false;finished=0;coreLife=28;
         if(ringRace!=null)ringRace.reset();
+        if(coreBattle!=null)coreBattle.reset();
         for(int i=0;i<orbs.size();i++){
             Orb b=orbs.get(i);
             b.place=0;b.out=false;b.score=0;b.hits=0;b.jumpTime=0;b.trailN=0;b.trailIndex=0;
@@ -121,6 +124,17 @@ public final class ModeEngine {
     public void advance(float dt){
         if(!running||orbs.size()<2||((mode==RING||mode==ELIMINATION||mode==CORE)&&winner()!=null))return;
         dt=clamp(dt,0,.04f);
+        if(mode==CORE && coreBattle!=null){
+            coreBattle.advance(dt);
+            elapsed=coreBattle.elapsed;
+            if(coreBattle.finished){
+                finished=orbs.size();
+                if(coreBattle.winner>=0 && coreBattle.winner<orbs.size())
+                    orbs.get(coreBattle.winner).place=1;
+                running=false;
+            }
+            return;
+        }
         elapsed+=dt;
         if(mode==RING){
             // A closed circle introduces the competitors; it is NOT an elimination arena.
@@ -268,6 +282,10 @@ public final class ModeEngine {
         }
     }
     public Orb winner(){
+        if(mode==CORE && coreBattle!=null){
+            return coreBattle.finished && coreBattle.winner>=0 &&
+                coreBattle.winner<orbs.size()?orbs.get(coreBattle.winner):null;
+        }
         if(mode==RING){
             if(ringRace==null || ringRace.finished<ringRace.balls.size() || ringRace.balls.isEmpty())
                 return null;
