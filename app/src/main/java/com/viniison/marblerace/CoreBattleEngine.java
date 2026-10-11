@@ -27,7 +27,7 @@ public final class CoreBattleEngine {
     public static final class Marble {
         public float x,y,vx,vy,r,mass,age;
         public final int side;
-        public boolean active=true,boosted=false;
+        public boolean active=true,boosted=false,approached=false;
         public final int id;
         Marble(int id,int side,float x,float y,float vx,float vy,float r,float mass){
             this.id=id;this.side=side;this.x=x;this.y=y;
@@ -67,7 +67,8 @@ public final class CoreBattleEngine {
     public final ArrayList<Spark> sparks=new ArrayList<>();
     public final float[] hp={MAX_HP,MAX_HP};
     public final float[] flash={0,0};
-    public final int[] hits={0,0},active={0,0},spawned={0,0},boosts={0,0},winTotals={0,0};
+    public final int[] hits={0,0},active={0,0},spawned={0,0},boosts={0,0},approaches={0,0},winTotals={0,0};
+    public final float[] approachSumX={0,0};
     public float elapsed=0,cranePhase=0;
     public int winner=-1;
     public boolean finished=false;
@@ -86,7 +87,7 @@ public final class CoreBattleEngine {
         rng.setSeed(seed ^ 0x53A1C4B17L);
         marbles.clear();armor.clear();pegs.clear();segments.clear();sparks.clear();
         Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);
-        Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);
+        Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
         nextSpawn[0]=.55f;nextSpawn[1]=.65f;nextWave=15;
         elapsed=0;cranePhase=0;winner=-1;finished=false;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
@@ -295,6 +296,9 @@ public final class CoreBattleEngine {
         m.vy+=GRAVITY*dt;m.vx*=.999f;
         cap(m);
         m.x+=m.vx*dt;m.y+=m.vy*dt;
+        if(m.y>=CORE_Y-95 && !m.approached){
+            m.approached=true;approaches[m.side]++;approachSumX[m.side]+=m.x;
+        }
         if(m.y>BOTTOM+36||m.age>19){
             // Void: remove immediately so object counts never grow forever.
             m.active=false;active[m.side]--;return;
