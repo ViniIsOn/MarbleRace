@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.7 beta 🎱
+# MarbleLab Studio — v1.8 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -109,3 +109,20 @@ O antigo modo de acertar um único círculo foi substituído por uma batalha **e
 - O GitHub Actions executa **48 batalhas simuladas e repetições idênticas** para validar duração, danos e resultados antes de gerar o APK.
 
 A versão 1.7 mantém o mesmo `applicationId` e mecanismo de backup ZIP com personagens e músicas. Atualize o APK por cima sem desinstalar quando a assinatura permitir.
+
+## v1.8 — Core Destruction: simulação física de bolinhas
+
+A animação de tiros da v1.7 foi substituída por **bolinhas simuladas individualmente em física 2D**, com velocidade, massa, elasticidade e colisões. Não há um mecanismo de dano aleatório simulando impactos invisíveis.
+
+- **Mapa simétrico**: paredes, divisória central, funis, rampas e buracos de descarte na parte inferior.
+- **Geradores reais**: uma bolinha a cada 0,2 s por time + ondas de 50 bolinhas por lado a cada 17 segundos.
+- **Object pool/limite**: máximo de 300 bolinhas ativas por time; marbles fora da arena ou antigas são removidas para evitar acúmulo infinito.
+- **Física**: gravidade, restituição nas colisões circulares, atrito baixo, massa proporcional ao raio e grade espacial para impedir comparações quadráticas desnecessárias.
+- **Obstáculos reais**: três serras, três hélices giratórias, portões de 5 segundos, boosters, pinos de pinball e funis.
+- **Núcleos**: 1000 HP por lado, quatro placas de armadura quebráveis, dano calculado pela massa e velocidade de impactos de bolinhas adversárias. Efeito de dano, rachaduras e partículas coloridas.
+- **HUD**: barras de HP, contadores de bolinhas, timer, eventos e placar de vitórias que fica salvo no celular.
+- **Partidas de 60 a 95 segundos**, com MP4 vertical e quadro do vencedor ao final. O editor, importação de imagens e backup ZIP permanecem intactos.
+- A implementação usa **motor 2D próprio em Java**, não é Box2D/Algodoo nem cópia de um mapa específico do MIKAN.
+- GitHub Actions verifica consistência, uso de memória, vencedor, dano nos núcleos e reprodutibilidade para exportação.
+
+**Limitações de hardware:** mesmo com teto de 300 por time, a taxa de quadros depende do celular. Se houver queda de desempenho, será necessário ajustar quantidade de bolinhas e detalhes visuais.
