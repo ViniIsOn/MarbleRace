@@ -152,7 +152,7 @@ public final class CoreBattleEngine {
         for(int i=0;i<limit;i++){
             int col=i%10,row=i/10;
             addMarble(side,base+(col-4.5f)*32f,
-                245-row*29f);
+                365-row*29f);
         }
     }
     private void cap(Marble m){
@@ -228,12 +228,12 @@ public final class CoreBattleEngine {
             segmentCollision(m,700,910,1000,910,10,5);
         }
         // Booster strips along the central crossing lanes push marbles at enemy.
-        if(m.y>952 && m.y<995){
-            if(m.side==0 && m.x>210 && m.x<495 && !m.boosted){
-                m.vx+=560;m.vy+=80;m.boosted=true;
+        if(m.y>805 && m.y<860){
+            if(m.side==0 && m.x>140 && m.x<520 && !m.boosted){
+                m.vx+=720;m.vy+=30;m.boosted=true;
                 setEvent("BOOST AZUL →");
-            }else if(m.side==1 && m.x>585 && m.x<870 && !m.boosted){
-                m.vx-=560;m.vy+=80;m.boosted=true;
+            }else if(m.side==1 && m.x>560 && m.x<940 && !m.boosted){
+                m.vx-=720;m.vy+=30;m.boosted=true;
                 setEvent("← BOOST VERMELHO");
             }
         }
