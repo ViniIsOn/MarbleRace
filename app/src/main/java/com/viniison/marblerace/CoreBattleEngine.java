@@ -228,18 +228,15 @@ public final class CoreBattleEngine {
             segmentCollision(m,700,910,1000,910,10,5);
         }
         // Booster strips along the central crossing lanes push marbles at enemy.
-        if(m.y>805 && m.y<860){
-            if(m.side==0 && m.x>140 && m.x<520 && !m.boosted){
-                // Aim at the opponent's protected core from this exact location.
-                // Replaces a fixed bias that previously favored the left side.
-                m.vx=clamp((CORE_X[1]-m.x)/.69f,400,880)+rnd(-80,80);
-                m.vy=clamp(m.vy,240,520);m.boosted=true;boosts[m.side]++;
-                setEvent("BOOST AZUL →");
-            }else if(m.side==1 && m.x>560 && m.x<940 && !m.boosted){
-                m.vx=clamp((CORE_X[0]-m.x)/.69f,-880,-400)+rnd(-80,80);
-                m.vy=clamp(m.vy,240,520);m.boosted=true;
-                setEvent("← BOOST VERMELHO");
-            }
+        if(m.y>805 && m.y<860 && !m.boosted){
+            // Team-specific impulse regardless of x: the funnels may deflect
+            // a marble across the divider before it reaches the booster level.
+            float target=CORE_X[1-m.side];
+            float desired=clamp((target-m.x)/.69f,-880,880);
+            m.vx=(m.side==0?1:-1)*Math.max(350,Math.abs(desired))+rnd(-80,80);
+            m.vy=clamp(m.vy,240,520);
+            m.boosted=true;boosts[m.side]++;
+            setEvent(m.side==0?"BOOST AZUL →":"← BOOST VERMELHO");
         }
         for(Peg peg:pegs){
             if(Math.abs(m.y-peg.y)<55 && Math.abs(m.x-peg.x)<55)
