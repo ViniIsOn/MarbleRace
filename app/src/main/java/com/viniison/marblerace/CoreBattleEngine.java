@@ -112,7 +112,7 @@ public final class CoreBattleEngine {
             float cx=CORE_X[side];
             // Two seeded armor configurations: physically unequal shield
             // strengths compensate for funnel geometry; either may win.
-            armorTier[side]=side==0?rnd(.7f,1.45f):rnd(1.35f,4.1f);
+            armorTier[side]=side==0?rnd(.7f,1.45f):rnd(1.75f,6.0f);
             float scale=armorTier[side];
             armor.add(new Armor(side,cx-105,CORE_Y-88,34,72,47*scale));
             armor.add(new Armor(side,cx+71,CORE_Y-88,34,72,47*scale));
