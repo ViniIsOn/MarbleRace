@@ -56,8 +56,11 @@ jobs:
         shell: bash
         run: |
           javac -encoding UTF-8 -d "$RUNNER_TEMP/marble-physics" \
+            app/src/main/java/com/viniison/marblerace/CoreEquipmentSystem.java \
             app/src/main/java/com/viniison/marblerace/CoreBattleEngine.java \
-            tests/com/viniison/marblerace/CoreBattleSmokeTest.java
+            tests/com/viniison/marblerace/CoreBattleSmokeTest.java \
+            tests/com/viniison/marblerace/CoreEquipmentSmokeTest.java
+          java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.CoreEquipmentSmokeTest
           java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.CoreBattleSmokeTest
 
       - name: Test complete and interrupted ZIP backups
