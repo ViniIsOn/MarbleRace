@@ -26,6 +26,8 @@ public final class CoreBattleEngine {
     private float accumulator=0f;
     private final Random rng;
     private final long seed;
+    /** Alternates which physical lane gets first update/ID priority per round. */
+    public final int spawnFirstSide;
     /** Entrants swap core positions by match seed to distribute any map-side advantage. */
     public final int[] entrantAtCore;
     /** The arena never secretly changes team strengths based on the score. */
@@ -100,6 +102,7 @@ public final class CoreBattleEngine {
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
+        spawnFirstSide=(int)((seed>>>2)&1L);
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         rng=new Random(seed ^ 0x53A1C4B17L);
@@ -496,14 +499,18 @@ public final class CoreBattleEngine {
             flash[i]=Math.max(0,flash[i]-dt);
             absorbedFlash[i]=Math.max(0,absorbedFlash[i]-dt);
         }
-        for(int side=0;side<2;side++){
+        // The same physical side no longer receives first simulation priority
+        // in every round. This affects real object ordering, never the outcome.
+        for(int offset=0;offset<2;offset++){
+            int side=(spawnFirstSide+offset)&1;
             while(elapsed>=nextSpawn[side]){
                 if(active[side]<SOFT_PER_TEAM)spawnOne(side);
                 nextSpawn[side]+=.18f;
             }
         }
         if(elapsed>=nextWave){
-            for(int side=0;side<2;side++)wave(side,45);
+            for(int offset=0;offset<2;offset++)
+                wave((spawnFirstSide+offset)&1,45);
             nextWave+=14f;
             setEvent("ONDA DE 45 BOLINHAS!");
         }
