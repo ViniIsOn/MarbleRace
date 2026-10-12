@@ -346,6 +346,15 @@ public final class CoreBattleEngine {
     }
     private void damageCore(Marble m,int target){
         if(m.side==target||hp[target]<=0)return;
+        if(shieldSeconds[target]>0){
+            float dxShield=m.x-CORE_X[target],dyShield=m.y-CORE_Y;
+            float shieldRadius=CORE_RADIUS+55f+m.r;
+            if(dist2(dxShield,dyShield)<shieldRadius*shieldRadius){
+                circleCollision(m,CORE_X[target],CORE_Y,shieldRadius-m.r,90f);
+                absorbedFlash[target]=.13f;
+                return;
+            }
+        }
         float cx=CORE_X[target],dy=m.y-CORE_Y,dx=m.x-cx;
         float rad=CORE_RADIUS+m.r;
         if(dist2(dx,dy)>rad*rad)return;
@@ -399,6 +408,123 @@ public final class CoreBattleEngine {
             setEvent("NÚCLEO DESTRUÍDO!");
             particle(cx,CORE_Y,target==0?0xFFFFD050:0xFFA950F5,65);
         }
+    }
+    private void equipmentDamage(int target,float amount,boolean piercing){
+        int attacker=1-target;
+        if(amount<=0||hp[target]<=0)return;
+        if(shieldSeconds[target]>0&&!piercing){
+            absorbedFlash[target]=.2f;
+            particle(CORE_X[target],CORE_Y,
+                target==0?0xFFFFE374:0xFFB77AFF,7);
+            return;
+        }
+        if(!piercing){
+            Armor plate=null;
+            for(Armor a:armor)if(a.team==target&&a.hp>0){
+                if(plate==null||a.hp<plate.hp)plate=a;
+            }
+            if(plate!=null){
+                plate.hp=Math.max(0,plate.hp-amount);
+                shieldHits[target]++;
+                absorbedFlash[target]=.18f;
+                lastImpactX[target]=plate.x+plate.w*.5f;
+                lastImpactY[target]=plate.y+plate.h*.5f;
+                if(plate.hp==0){
+                    particle(lastImpactX[target],lastImpactY[target],
+                        target==0?0xFFFFDE4C:0xFFB258E8,12);
+                    setEvent("PROTEÇÃO DESTRUÍDA");
+                }
+                return;
+            }
+        }
+        hp[target]=Math.max(0,hp[target]-amount);
+        flash[target]=.18f;weaponHits[attacker]++;
+        lastImpactX[target]=CORE_X[target];lastImpactY[target]=CORE_Y;
+        particle(CORE_X[target],CORE_Y,target==0?0xFFFFD348:0xFF9635E9,10);
+        if(hp[target]==0&&destroyedAt[target]<0){
+            destroyedAt[target]=elapsed;
+            setEvent("NÚCLEO DESTRUÍDO!");
+            particle(CORE_X[target],CORE_Y,target==0?0xFFFFD348:0xFF9635E9,60);
+        }
+    }
+    private void launchEquipment(CoreEquipmentSystem.Delivery delivery){
+        int team=delivery.side,type=delivery.type;
+        int target=1-team;
+        switch(type){
+            case CoreEquipmentSystem.PENETRATION_LASER:
+                beamSide=team;beamType=type;beamSeconds=.62f;
+                equipmentDamage(target,22,true);
+                setEvent("LASER PERFURANTE");
+                break;
+            case CoreEquipmentSystem.SAW:
+                // A real traveling saw projectile meets the opponent's armor.
+                spawnWeaponProjectile(team,type);
+                setEvent("SERRA LANÇADA");
+                break;
+            case CoreEquipmentSystem.SHIELD:
+                shieldSeconds[team]=7.5f;
+                setEvent("ESCUDO ATIVADO");
+                break;
+            case CoreEquipmentSystem.BURNING_LASER:
+                beamSide=team;beamType=type;beamSeconds=2.7f;
+                burningTarget=target;burningSeconds=2.7f;burnPulse=0;
+                setEvent("LASER INCENDIÁRIO");
+                break;
+            case CoreEquipmentSystem.BOMB:
+                spawnWeaponProjectile(team,type);
+                setEvent("BOMBA ENVIADA");
+                break;
+            default:
+                spawnWeaponProjectile(team,CoreEquipmentSystem.SHOT);
+                setEvent("DISPARO ENVIADO");
+        }
+    }
+    private void spawnWeaponProjectile(int side,int type){
+        float direction=side==0?1:-1;
+        float x=CORE_X[side]+direction*(CORE_RADIUS+32);
+        float y=CORE_Y-95;
+        weaponProjectiles.add(new WeaponProjectile(side,type,x,y,
+            direction*(type==CoreEquipmentSystem.SAW?340f:460f),50f));
+    }
+    private void updateEquipment(float dt){
+        CoreEquipmentSystem.Delivery delivery=equipment.update(dt);
+        if(delivery!=null)launchEquipment(delivery);
+        beamSeconds=Math.max(0,beamSeconds-dt);
+        for(int side=0;side<2;side++)
+            shieldSeconds[side]=Math.max(0,shieldSeconds[side]-dt);
+        if(burningSeconds>0 && burningTarget>=0){
+            burningSeconds=Math.max(0,burningSeconds-dt);
+            burnPulse+=dt;
+            while(burnPulse>=.38f){
+                burnPulse-=.38f;
+                equipmentDamage(burningTarget,5f,false);
+            }
+        }
+        for(WeaponProjectile shot:weaponProjectiles){
+            shot.age+=dt;
+            shot.x+=shot.vx*dt;shot.y+=shot.vy*dt;
+            float dx=shot.x-CORE_X[1-shot.side],dy=shot.y-CORE_Y;
+            if(dist2(dx,dy)<(CORE_RADIUS+26)*(CORE_RADIUS+26)){
+                float power=shot.type==CoreEquipmentSystem.BOMB?38f:
+                    shot.type==CoreEquipmentSystem.SAW?31f:13f;
+                equipmentDamage(1-shot.side,power,false);
+                if(shot.type==CoreEquipmentSystem.BOMB){
+                    particle(shot.x,shot.y,0xFFFF8B23,32);
+                    // The blast physically pushes nearby marbles away.
+                    for(Marble m:marbles)if(m.active){
+                        float px=m.x-shot.x,py=m.y-shot.y;
+                        float ds=dist2(px,py);
+                        if(ds<210*210 && ds>1){
+                            float d=(float)Math.sqrt(ds);
+                            m.vx+=px/d*230f;m.vy+=py/d*230f;
+                            cap(m);
+                        }
+                    }
+                }
+                shot.age=100;
+            }
+        }
+        weaponProjectiles.removeIf(p->p.age>3.5f||p.x<0||p.x>1080);
     }
     private void simulateMarble(Marble m,float dt){
         m.age+=dt;
@@ -516,6 +642,7 @@ public final class CoreBattleEngine {
             flash[i]=Math.max(0,flash[i]-dt);
             absorbedFlash[i]=Math.max(0,absorbedFlash[i]-dt);
         }
+        updateEquipment(dt);
         for(int side=0;side<2;side++){
             while(elapsed>=nextSpawn[side]){
                 if(active[side]<SOFT_PER_TEAM)spawnOne(side);
