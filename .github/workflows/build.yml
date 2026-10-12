@@ -60,6 +60,14 @@ jobs:
             tests/com/viniison/marblerace/CoreBattleSmokeTest.java
           java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.CoreBattleSmokeTest
 
+      - name: Test complete and interrupted ZIP backups
+        shell: bash
+        run: |
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/marble-physics" \
+            app/src/main/java/com/viniison/marblerace/BackupIntegrity.java \
+            tests/com/viniison/marblerace/BackupIntegritySmokeTest.java
+          java -cp "$RUNNER_TEMP/marble-physics" com.viniison.marblerace.BackupIntegritySmokeTest
+
       - name: Build APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
