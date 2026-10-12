@@ -122,10 +122,11 @@ public final class CoreBattleRenderer {
         // Rotating physical saw wheels
         saw(c,340,858,40,g.cranePhase);
         saw(c,740,858,40,-g.cranePhase);
-        saw(c,540,1045,35,g.cranePhase);
-        float[][] prop={{280,770},{800,770},{540,985}};
+        // The static center bumper is already drawn by the peg loop.
+        // Only side paddles rotate, exactly as in CoreBattleEngine.
+        float[][] prop={{280,770},{800,770}};
         for(int i=0;i<prop.length;i++){
-            float ang=(i==2?g.centralSpin:(i==1?-1:1))*g.cranePhase*2.35f + (i==2?1.5707963f:0f);
+            float ang=(i==1?-1f:1f)*g.cranePhase*2.35f;
             float vx=(float)Math.cos(ang)*105f,vy=(float)Math.sin(ang)*105f;
             stroke(c,prop[i][0]-vx,prop[i][1]-vy,prop[i][0]+vx,prop[i][1]+vy,25,0xFF1D2533);
             stroke(c,prop[i][0]-vx,prop[i][1]-vy,prop[i][0]+vx,prop[i][1]+vy,13,0xFFB1C6D3);
