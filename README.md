@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.9.3 beta 🎱
+# MarbleLab Studio — v1.10 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -176,3 +176,19 @@ A animação de tiros da v1.7 foi substituída por **bolinhas simuladas individu
 - Mantidos backup verificado ZIP com músicas/imagens, aplicação Android original, exportação MP4 e demais modos.
 
 A atualização normal pode preservar dados se o APK for assinado pela mesma chave. Caso a assinatura não seja compatível, salve seus dados antes de remover a versão anterior.
+
+## v1.10 — Core Destruction: foice e equipamentos de verdade
+
+A arena do Core Destruction foi reconstruída **dentro do app Android**, usando o próprio Canvas e física Java. Nenhuma imagem de mockup foi utilizada como substituição da jogabilidade.
+
+- **Bolinhas seletoras no compartimento superior** quicam e determinam qual equipe recebe o próximo equipamento quando atingem a região de seleção; há limite de espera para que a máquina não fique travada.
+- **Foice/guindaste central funcional** executa descida, recolhimento de um objeto na esteira, subida e entrega à equipe selecionada. A posição da lâmina vem do mesmo estado físico reproduzido no MP4.
+- **Esteira real de equipamentos**: as cápsulas de seis cores deslocam-se continuamente e a cápsula mais próxima do recolhimento é removida e reposta. A lista da arena informa qual item corresponde a cada cor.
+- **PenetrationLaser** perfura e danifica o núcleo; **Saw** lança uma serra que desgasta as proteções; **Shield** cria um campo temporário que rebate bolinhas e bloqueia armas comuns; **BurningLaser** causa pulsos temporizados; **Bomb** provoca impacto e empurra fisicamente bolinhas próximas; **Shot** dispara um projétil.
+- Tubulações curvas, núcleos concêntricos amarelo/roxo, serras industriais grandes nas bordas (com colisão), equipamento selecionado na ponta da foice e efeitos coloridos diretamente no campo de batalha.
+- Caixas **TRASH** são decorativas, conforme a referência. Não apagam itens da esteira. Bolinhas só são descartadas fora da arena.
+- Continuam os geradores das duas equipes, sistema de armaduras, partidas de até 120s e reforços de reviravolta.
+- O teste **CoreEquipmentSmokeTest** verifica 24 simulações determinísticas, as seis armas e seleções de ambas equipes, além da aplicação real de equipamentos numa batalha.
+- Mantidos todos os outros modos, applicationId, nomes e imagens de corredores, biblioteca musical, exportação vertical e backup ZIP verificado.
+
+**Nota:** a referência visual foi usada como inspiração para um cenário mecânico original. A física e armas são uma interpretação própria; não se presume que o mecanismo interno do vídeo seja conhecido com certeza.
