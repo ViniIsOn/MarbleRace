@@ -45,6 +45,8 @@ public class MainActivity extends Activity {
     private final ArrayList<RaceEngine.Racer> racers=new ArrayList<>();
     private final ExecutorService io=Executors.newFixedThreadPool(4);
     private final ExecutorService autoSaveQueue=Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.atomic.AtomicBoolean backupBusy=
+        new java.util.concurrent.atomic.AtomicBoolean(false);
     private RaceEngine race;
     private ModeEngine mini;
     private RaceView preview;
@@ -445,10 +447,14 @@ public class MainActivity extends Activity {
             }).show();
     }
     private void showDataMenu(){
+        if(backupBusy.get()){
+            toast("Aguarde o backup ou a restauração terminar.");
+            return;
+        }
         String[] choices={
-            "SALVAR TUDO • personagens + músicas",
-            "RESTAURAR TUDO • ZIP ou backup JSON antigo",
-            "Atualizações preservam os dados do app"
+            "SALVAR NOVO BACKUP • cria ZIP completo",
+            "RESTAURAR BACKUP • abre ZIP já salvo",
+            "Como preservar meus dados nas atualizações"
         };
         new AlertDialog.Builder(this).setTitle("DADOS DOS CORREDORES")
             .setItems(choices,(dialog,which)->{
@@ -456,7 +462,10 @@ public class MainActivity extends Activity {
                     Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
                     i.setType("application/zip");
                     i.addCategory(Intent.CATEGORY_OPENABLE);
-                    i.putExtra(Intent.EXTRA_TITLE,"MarbleLab_backup_com_musicas.zip");
+                    String date=new java.text.SimpleDateFormat(
+                        "yyyyMMdd-HHmmss",java.util.Locale.US).format(new java.util.Date());
+                    i.putExtra(Intent.EXTRA_TITLE,
+                        "MarbleLab_backup_"+date+".zip");
                     startActivityForResult(i,RacerBackup.SAVE_REQUEST);
                 }else if(which==1){
                     Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -470,32 +479,59 @@ public class MainActivity extends Activity {
                 }
             }).setNegativeButton("Fechar",null).show();
     }
+    private AlertDialog showBackupProgress(String title,String message){
+        AlertDialog dlg=new AlertDialog.Builder(this).setTitle(title)
+            .setMessage(message).setCancelable(false).create();
+        dlg.show();
+        return dlg;
+    }
     private void saveCreatorBackup(Uri uri){
+        if(!backupBusy.compareAndSet(false,true)){
+            toast("Aguarde a operação anterior terminar.");return;
+        }
         ArrayList<RaceEngine.Racer> snapshot=new ArrayList<>(racers);
         final int mode=selectedMode,track=selectedTrack;
-        new AlertDialog.Builder(this).setTitle("Backup completo")
-            .setMessage("As músicas serão copiadas para um ZIP junto das imagens e nomes dos corredores. Dependendo do número de faixas, o arquivo pode ser grande e levar alguns minutos. Mantenha o app aberto.")
-            .setPositiveButton("Entendi",null).show();
+        AlertDialog progress=showBackupProgress("Salvando backup completo",
+            "Copiando personagens e músicas para um ZIP seguro. Pode levar alguns minutos. Não feche o aplicativo.");
         io.execute(()->{
             try{
                 StudioBackup.write(this,uri,snapshot,mode,track,music);
-                runOnUiThread(()->toast("Backup completo salvo, com as músicas!"));
+                runOnUiThread(()->{
+                    backupBusy.set(false);
+                    progress.dismiss();
+                    new AlertDialog.Builder(this).setTitle("Backup verificado!")
+                        .setMessage("Personagens e músicas foram gravados e conferidos. Guarde o novo ZIP fora do aplicativo.")
+                        .setPositiveButton("OK",null).show();
+                });
             }catch(Exception e){
-                runOnUiThread(()->new AlertDialog.Builder(this)
-                    .setTitle("Falha no backup")
-                    .setMessage(e.getMessage()).setPositiveButton("OK",null).show());
+                runOnUiThread(()->{
+                    backupBusy.set(false);
+                    progress.dismiss();
+                    new AlertDialog.Builder(this).setTitle("Backup NÃO concluído")
+                        .setMessage((e.getMessage()==null?"Não foi possível verificar os arquivos.":e.getMessage())+
+                            "\n\nNão use o ZIP que falhou. Seus corredores e músicas atuais foram mantidos.")
+                        .setPositiveButton("Entendi",null).show();
+                });
             }
         });
     }
     private void restoreCreatorBackup(Uri uri){
-        new AlertDialog.Builder(this).setTitle("Restaurar personagens?")
-            .setMessage("Isso substituirá os corredores atuais e, se for um ZIP completo, também a biblioteca de músicas. Backups JSON antigos restauram apenas os personagens.")
+        if(backupBusy.get()){toast("Espere o backup em andamento terminar.");return;}
+        new AlertDialog.Builder(this).setTitle("Restaurar um backup existente?")
+            .setMessage("Escolha apenas um ZIP que tenha sido salvo até o fim. O arquivo será verificado antes de alterar os corredores ou a biblioteca de músicas. Backups JSON antigos também são aceitos.")
             .setNegativeButton("Cancelar",null)
-            .setPositiveButton("Restaurar",(dialog,which)->{
+            .setPositiveButton("Verificar e restaurar",(dialog,which)->{
+                if(!backupBusy.compareAndSet(false,true)){
+                    toast("Já existe outra operação em andamento.");return;
+                }
+                AlertDialog progress=showBackupProgress("Verificando backup",
+                    "Checando o ZIP, os arquivos de música e os personagens antes de restaurar...");
                 io.execute(()->{
                     try{
                         StudioBackup.Loaded backup=StudioBackup.read(this,uri);
                         runOnUiThread(()->{
+                            backupBusy.set(false);
+                            progress.dismiss();
                             music.stop();
                             racers.clear();racers.addAll(backup.creator.racers);
                             selectedMode=backup.creator.mode;selectedTrack=backup.creator.track;
@@ -511,9 +547,15 @@ public class MainActivity extends Activity {
                             toast(backup.hasMusic?"Corredores e músicas restaurados!":"Corredores restaurados!");
                         });
                     }catch(Exception e){
-                        runOnUiThread(()->new AlertDialog.Builder(this)
-                            .setTitle("Backup inválido")
-                            .setMessage(e.getMessage()).setPositiveButton("OK",null).show());
+                        runOnUiThread(()->{
+                            backupBusy.set(false);
+                            progress.dismiss();
+                            new AlertDialog.Builder(this)
+                                .setTitle("Não foi possível restaurar")
+                                .setMessage((e.getMessage()==null?"Arquivo de backup inválido.":e.getMessage())+
+                                    "\n\nNada foi substituído. Não apague o ZIP antigo. Se os dados ainda estiverem no app, use SALVAR NOVO BACKUP.")
+                                .setPositiveButton("OK",null).show();
+                        });
                     }
                 });
             }).show();
