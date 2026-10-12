@@ -26,8 +26,6 @@ public final class CoreBattleEngine {
     private float accumulator=0f;
     private final Random rng;
     private final long seed;
-    /** Alternates which physical lane gets first update/ID priority per round. */
-    public final int spawnFirstSide;
     /** Entrants swap core positions by match seed to distribute any map-side advantage. */
     public final int[] entrantAtCore;
     /** The arena never secretly changes team strengths based on the score. */
@@ -96,13 +94,12 @@ public final class CoreBattleEngine {
     public String event="PREPARE-SE",lastEvent="PREPARE-SE";
     public float eventTimer=0;
     private final float[] nextSpawn={0,0};
-    private float nextWave=12f;
+    private float nextWave=12f, nextReinforcement=20f;
     private int idSequence=0, frames=0;
     private boolean burstAtFinish=false;
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
-        spawnFirstSide=(int)((seed>>>2)&1L);
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         rng=new Random(seed ^ 0x53A1C4B17L);
@@ -119,7 +116,7 @@ public final class CoreBattleEngine {
         Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
         Arrays.fill(drained,0);Arrays.fill(consumed,0);Arrays.fill(shieldHits,0);
         Arrays.fill(lastImpactX,0);Arrays.fill(lastImpactY,0);Arrays.fill(absorbedFlash,0);accumulator=0;
-        nextSpawn[0]=.55f;nextSpawn[1]=.55f;nextWave=12f;
+        nextSpawn[0]=.55f;nextSpawn[1]=.55f;nextWave=12f;nextReinforcement=20f;
         elapsed=0;cranePhase=0;winner=-1;physicalWinner=-1;
         finished=false;ending=false;endingTime=0;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
@@ -499,20 +496,27 @@ public final class CoreBattleEngine {
             flash[i]=Math.max(0,flash[i]-dt);
             absorbedFlash[i]=Math.max(0,absorbedFlash[i]-dt);
         }
-        // The same physical side no longer receives first simulation priority
-        // in every round. This affects real object ordering, never the outcome.
-        for(int offset=0;offset<2;offset++){
-            int side=(spawnFirstSide+offset)&1;
+        for(int side=0;side<2;side++){
             while(elapsed>=nextSpawn[side]){
                 if(active[side]<SOFT_PER_TEAM)spawnOne(side);
                 nextSpawn[side]+=.18f;
             }
         }
         if(elapsed>=nextWave){
-            for(int offset=0;offset<2;offset++)
-                wave((spawnFirstSide+offset)&1,45);
+            for(int side=0;side<2;side++)wave(side,45);
             nextWave+=14f;
             setEvent("ONDA DE 45 BOLINHAS!");
+        }
+        if(elapsed>=nextReinforcement){
+            // Visible comeback mechanic, SAME rules for both teams: extra
+            // marbles must physically reach and damage an enemy core.
+            // No HP cheating and no predetermined winner.
+            if(Math.abs(hp[0]-hp[1])>=95f){
+                int trailing=hp[0]<hp[1]?0:1;
+                wave(trailing,45);
+                setEvent("REFORÇO DE REVIRAVOLTA!");
+            }
+            nextReinforcement+=16f;
         }
         for(Marble m:marbles)if(m.active)simulateMarble(m,dt);
         collideBalls();
