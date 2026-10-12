@@ -410,14 +410,17 @@ public final class CoreBattleEngine {
     private void collideBalls(){
         for(ArrayList<Marble> cell:cells)cell.clear();
         for(Marble m:marbles)if(m.active)cells[index(m)].add(m);
-        for(Marble m:marbles){
+        boolean reverse=(frames&1)!=0;
+        int count=marbles.size();
+        for(int order=0;order<count;order++){
+            Marble m=marbles.get(reverse?count-1-order:order);
             if(!m.active)continue;
             int cx=(int)clamp(m.x/CELL,0,COLS-1);
             int cy=(int)clamp(m.y/CELL,0,ROWS-1);
             for(int y=Math.max(0,cy-1);y<=Math.min(ROWS-1,cy+1);y++)
                 for(int x=Math.max(0,cx-1);x<=Math.min(COLS-1,cx+1);x++){
                     for(Marble n:cells[y*COLS+x]){
-                        if(n.id<=m.id||!n.active)continue;
+                        if(!n.active || (reverse?n.id>=m.id:n.id<=m.id))continue;
                         // All marbles are real rigid circles, even between teams.
                         float dx=m.x-n.x,dy=m.y-n.y,range=m.r+n.r,d2=dist2(dx,dy);
                         if(d2>=range*range)continue;
@@ -492,18 +495,29 @@ public final class CoreBattleEngine {
             flash[i]=Math.max(0,flash[i]-dt);
             absorbedFlash[i]=Math.max(0,absorbedFlash[i]-dt);
         }
-        for(int side=0;side<2;side++){
+        // Alternating scheduling prevents the left side from always being
+        // processed first, including shared-RNG consumption and collision order.
+        boolean reverse=(frames&1)!=0;
+        for(int order=0;order<2;order++){
+            int side=reverse?1-order:order;
             while(elapsed>=nextSpawn[side]){
                 if(active[side]<SOFT_PER_TEAM)spawnOne(side);
                 nextSpawn[side]+=.18f;
             }
         }
         if(elapsed>=nextWave){
-            for(int side=0;side<2;side++)wave(side,45);
+            for(int order=0;order<2;order++){
+                int side=reverse?1-order:order;
+                wave(side,45);
+            }
             nextWave+=14f;
             setEvent("ONDA DE 45 BOLINHAS!");
         }
-        for(Marble m:marbles)if(m.active)simulateMarble(m,dt);
+        int count=marbles.size();
+        for(int order=0;order<count;order++){
+            Marble m=marbles.get(reverse?count-1-order:order);
+            if(m.active)simulateMarble(m,dt);
+        }
         collideBalls();
         // Return entities to the preallocated object pool, no per-spawn GC.
         if(frames%4==0)marbles.removeIf(m->{
