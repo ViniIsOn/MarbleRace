@@ -143,7 +143,7 @@ public final class CoreBattleSmokeTest {
         physicsRegressions();
         int[] victories={0,0}, physicalVictories={0,0};
         int totalHits=0,maxPeak=0,shieldImpacts=0;
-        for(int k=0;k<32;k++){
+        for(int k=0;k<96;k++){
             long seed=12345678L+k*1301981L;
             Result a=simulate(seed);
             Result b=simulate(seed);
@@ -161,9 +161,9 @@ public final class CoreBattleSmokeTest {
                 throw new AssertionError("Export outcome differed for seed "+seed);
         }
         if(totalHits+shieldImpacts<16)throw new AssertionError("No real hits on enemy cores or armor: "+totalHits+" shield="+shieldImpacts);
-        if(victories[0]==0||victories[1]==0||physicalVictories[0]==0||physicalVictories[1]==0)
+        if(victories[0]<24||victories[1]<24||physicalVictories[0]<24||physicalVictories[1]<24)
             throw new AssertionError("Unbalanced winners: entrants="+victories[0]+"/"+victories[1]+" physical="+physicalVictories[0]+"/"+physicalVictories[1]);
-        System.out.println("PASS: 32 physics battles + exact replays; real hits="+totalHits+
+        System.out.println("PASS: 96 physics battles + exact replays; real hits="+totalHits+
             ", armor impacts="+shieldImpacts+", max marbles="+maxPeak+", winners="+victories[0]+"/"+victories[1]+" physical="+physicalVictories[0]+"/"+physicalVictories[1]);
     }
 }
