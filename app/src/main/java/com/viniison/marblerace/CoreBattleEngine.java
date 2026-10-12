@@ -348,9 +348,9 @@ public final class CoreBattleEngine {
                     target==0?0xFFFFD050:0xFFAA77F5,12);
             }
             // A reflected marble stays visible and in the simulation.
-            float dx=m.x-cx,dy=m.y-CORE_Y;
-            float len=(float)Math.sqrt(Math.max(1,dist2(dx,dy)));
-            float nx=dx/len,ny=dy/len;
+            float bounceDx=m.x-cx,bounceDy=m.y-CORE_Y;
+            float len=(float)Math.sqrt(Math.max(1,dist2(bounceDx,bounceDy)));
+            float nx=bounceDx/len,ny=bounceDy/len;
             m.x=cx+nx*(CORE_RADIUS+m.r+3);
             m.y=CORE_Y+ny*(CORE_RADIUS+m.r+3);
             float approach=m.vx*nx+m.vy*ny;
