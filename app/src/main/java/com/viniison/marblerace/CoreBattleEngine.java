@@ -13,7 +13,7 @@ import java.util.Random;
 public final class CoreBattleEngine {
     public static final float MIN_DURATION=0f,MAX_DURATION=120f;
     public static final float MAX_HP=1000f;
-    public static final float CORE_Y=1190f, CORE_RADIUS=76f;
+    public static final float CORE_Y=1190f, CORE_RADIUS=145f;
     public static final float[] CORE_X={257f,823f};
     public static final int MAX_PER_TEAM=300, SOFT_PER_TEAM=220, MAX_PARTICLES=160;
     public static final float MIN_X=42,MAX_X=1038,TOP=175,BOTTOM=1450;
@@ -21,6 +21,7 @@ public final class CoreBattleEngine {
     private static final float CELL=52f, MAX_SPEED=950f;
     private static final int COLS=22,ROWS=31;
     private static final float GRAVITY=520f,RESTITUTION=.80f;
+    private static final float SPIN_RATE=2.45f*2.35f;
     private static final float TICK=1f/60f;
     private float accumulator=0f;
     private final Random rng;
@@ -75,7 +76,9 @@ public final class CoreBattleEngine {
     public final ArrayList<Marble> marbles=new ArrayList<>();
     private final Marble[] allMarbles=new Marble[MAX_PER_TEAM*2];
     private final ArrayDeque<Marble> recycled=new ArrayDeque<>(MAX_PER_TEAM*2);
-    public final int[] drained={0,0}, consumed={0,0};
+    public final int[] drained={0,0}, consumed={0,0}, shieldHits={0,0};
+    public final float[] lastImpactX={0,0},lastImpactY={0,0};
+    public final float[] absorbedFlash={0,0};
     public final ArrayList<Armor> armor=new ArrayList<>();
     public final ArrayList<Peg> pegs=new ArrayList<>();
     public final ArrayList<Segment> segments=new ArrayList<>();
@@ -113,7 +116,8 @@ public final class CoreBattleEngine {
         armor.clear();pegs.clear();segments.clear();sparks.clear();
         Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);Arrays.fill(destroyedAt,-1f);
         Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
-        Arrays.fill(drained,0);Arrays.fill(consumed,0);accumulator=0;
+        Arrays.fill(drained,0);Arrays.fill(consumed,0);Arrays.fill(shieldHits,0);
+        Arrays.fill(lastImpactX,0);Arrays.fill(lastImpactY,0);Arrays.fill(absorbedFlash,0);accumulator=0;
         nextSpawn[0]=.55f;nextSpawn[1]=.55f;nextWave=12f;
         elapsed=0;cranePhase=0;winner=-1;physicalWinner=-1;finished=false;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
@@ -133,10 +137,10 @@ public final class CoreBattleEngine {
             // Identical armor on both sides; fairness comes from mirrored geometry.
             armorTier[side]=1f;
             float scale=1f;
-            armor.add(new Armor(side,cx-105,CORE_Y-88,34,72,47*scale));
-            armor.add(new Armor(side,cx+71,CORE_Y-88,34,72,47*scale));
-            armor.add(new Armor(side,cx-42,CORE_Y-145,84,25,63*scale));
-            armor.add(new Armor(side,cx-42,CORE_Y+90,84,25,63*scale));
+            armor.add(new Armor(side,cx-179,CORE_Y-92,30,102,27*scale));
+            armor.add(new Armor(side,cx+149,CORE_Y-92,30,102,27*scale));
+            armor.add(new Armor(side,cx-62,CORE_Y-176,124,27,33*scale));
+            armor.add(new Armor(side,cx-62,CORE_Y+149,124,27,33*scale));
         }
         for(int side=0;side<2;side++){
             for(int i=0;i<8;i++){
@@ -217,16 +221,16 @@ public final class CoreBattleEngine {
         }
         m.vx+=nx*power;m.vy+=ny*power;
     }
-    private void segmentCollision(Marble m,float x1,float y1,float x2,float y2,
+    private boolean segmentCollision(Marble m,float x1,float y1,float x2,float y2,
                                   float margin,float kick){
         float dx=x2-x1,dy=y2-y1;
         float length=dx*dx+dy*dy;
-        if(length<1)return;
+        if(length<1)return false;
         float ratio=clamp(((m.x-x1)*dx+(m.y-y1)*dy)/length,0f,1f);
         float px=x1+ratio*dx,py=y1+ratio*dy;
         float vx=m.x-px,vy=m.y-py;
         float radius=m.r+margin,dd=dist2(vx,vy);
-        if(dd>=radius*radius)return;
+        if(dd>=radius*radius)return false;
         float d=(float)Math.sqrt(Math.max(.01f,dd));
         float nx=vx/d,ny=vy/d;
         if(d<1){nx=-dy/(float)Math.sqrt(length);ny=dx/(float)Math.sqrt(length);}
@@ -237,6 +241,7 @@ public final class CoreBattleEngine {
             m.vy-=(1+RESTITUTION)*toward*ny;
         }
         m.vx+=nx*kick;m.vy+=ny*kick;
+        return true;
     }
     private void machinery(Marble m){
         // Two spinning saws + one center pinball saw.
@@ -256,11 +261,16 @@ public final class CoreBattleEngine {
             float x=prop[i][0],y=prop[i][1];
             float ds=dist2(m.x-x,m.y-y);
             if(ds<165*165){
-                segmentCollision(m,x-vx,y-vy,x+vx,y+vy,13,90);
-                // Paddle tangential force rotates the collision response.
-                if(ds<145*145){
-                    m.vx-=(m.y-y)*.20f;
-                    m.vy+=(m.x-x)*.20f;
+                // Only a REAL paddle impact transfers rotational momentum.
+                // Crucially, its tangential velocity uses the SAME angular
+                // direction as the drawn blade (formerly favored the right).
+                if(segmentCollision(m,x-vx,y-vy,x+vx,y+vy,13,0)){
+                    float direction=i==2?centralSpin:(i==1?-1f:1f);
+                    float angularVelocity=direction*SPIN_RATE;
+                    float kickX=-(m.y-y)*angularVelocity*.19f;
+                    float kickY=(m.x-x)*angularVelocity*.19f;
+                    m.vx+=clamp(kickX,-185,185);
+                    m.vy+=clamp(kickY,-185,185);
                 }
             }
         }
@@ -314,9 +324,44 @@ public final class CoreBattleEngine {
         float speed=(float)Math.sqrt(dist2(m.vx,m.vy));
         // Incoming marbles must earn damage physically, not via a random timer.
         float power=clamp((3.5f+speed*.013f)*m.mass*.92f,2f,32f);
-        // Armor only protects when the projectile actually hits its rectangle.
-        // Never subtract HP from distant plates when a marble reaches this core.
+        // The four VISIBLE armor plates form a protective shield. While any
+        // plate remains, the projectile collides with armor instead of
+        // mysteriously damaging the vulnerable disk through protection.
+        Armor nearest=null;float nearestDistance=Float.MAX_VALUE;
+        for(Armor plate:armor){
+            if(plate.team!=target||plate.hp<=0)continue;
+            float plateX=plate.x+plate.w*.5f,plateY=plate.y+plate.h*.5f;
+            float d=dist2(m.x-plateX,m.y-plateY);
+            if(d<nearestDistance){nearestDistance=d;nearest=plate;}
+        }
+        if(nearest!=null){
+            nearest.hp=Math.max(0,nearest.hp-power*.74f);
+            shieldHits[target]++;
+            absorbedFlash[target]=.18f;
+            lastImpactX[target]=m.x;lastImpactY[target]=m.y;
+            particle(m.x,m.y,target==0?0xFFFFDE5A:0xFFAA72FF,5);
+            if(nearest.hp<=0){
+                setEvent("ARMADURA ROMPIDA!");
+                particle(nearest.x+nearest.w*.5f,nearest.y+nearest.h*.5f,
+                    target==0?0xFFFFD050:0xFFAA77F5,12);
+            }
+            // A reflected marble stays visible and in the simulation.
+            float dx=m.x-cx,dy=m.y-CORE_Y;
+            float len=(float)Math.sqrt(Math.max(1,dist2(dx,dy)));
+            float nx=dx/len,ny=dy/len;
+            m.x=cx+nx*(CORE_RADIUS+m.r+3);
+            m.y=CORE_Y+ny*(CORE_RADIUS+m.r+3);
+            float approach=m.vx*nx+m.vy*ny;
+            if(approach<0){
+                m.vx-=(1.68f*approach)*nx;
+                m.vy-=(1.68f*approach)*ny;
+            }
+            m.vx+=nx*85f;m.vy+=ny*85f;
+            cap(m);
+            return;
+        }
         hp[target]=Math.max(0,hp[target]-power);
+        lastImpactX[target]=m.x;lastImpactY[target]=m.y;
         flash[target]=.16f;
         hits[m.side]++;
         particle(m.x,m.y,m.side==0?0xFF65CFFF:0xFFFF5B7D,4);
@@ -426,7 +471,10 @@ public final class CoreBattleEngine {
     private void fixedStep(float dt){
         elapsed+=dt;frames++;cranePhase+=dt*2.45f;
         eventTimer=Math.max(0,eventTimer-dt);
-        for(int i=0;i<2;i++)flash[i]=Math.max(0,flash[i]-dt);
+        for(int i=0;i<2;i++){
+            flash[i]=Math.max(0,flash[i]-dt);
+            absorbedFlash[i]=Math.max(0,absorbedFlash[i]-dt);
+        }
         for(int side=0;side<2;side++){
             while(elapsed>=nextSpawn[side]){
                 if(active[side]<SOFT_PER_TEAM)spawnOne(side);
