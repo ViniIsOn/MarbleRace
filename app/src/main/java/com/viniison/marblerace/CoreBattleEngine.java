@@ -273,7 +273,7 @@ public final class CoreBattleEngine {
     private void machinery(Marble m){
         // Two mirrored side saws only: no center saw that redirects
         // one team's stream into the other core.
-        float[][] saws={{340,858,40},{740,858,40}};
+        float[][] saws={{340,858,40},{740,858,40},{90,520,94},{990,520,94}};
         for(float[] saw:saws){
             float dx=m.x-saw[0],dy=m.y-saw[1];
             if(dist2(dx,dy)<(m.r+saw[2]+2)*(m.r+saw[2]+2)){
