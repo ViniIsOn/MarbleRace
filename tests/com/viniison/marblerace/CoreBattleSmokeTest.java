@@ -51,6 +51,39 @@ public final class CoreBattleSmokeTest {
             throw new AssertionError("Game outside 0-122.5 seconds");
         return new Result(g,peak);
     }
+    private static void neutralCenterTest(){
+        // The center must NOT hide a rotating saw or a one-directional paddle.
+        CoreBattleEngine base=new CoreBattleEngine(123L);
+        boolean centered=false;
+        for(CoreBattleEngine.Peg peg:base.pegs){
+            if(Math.abs(peg.x-540f)<.1f && Math.abs(peg.y-1015f)<.1f &&
+               peg.r>=20 && peg.r<=30) centered=true;
+        }
+        if(!centered)
+            throw new AssertionError("Expected neutral stationary center peg");
+        // Same-speed marbles arriving from opposite directions must rebound
+        // with mirror-equivalent horizontal velocities from the center peg.
+        CoreBattleEngine left=new CoreBattleEngine(108L);
+        CoreBattleEngine right=new CoreBattleEngine(108L);
+        CoreBattleEngine.Marble fromLeft=new CoreBattleEngine.Marble(
+            6001,0,505f,1015f,150f,0f,15f,1f);
+        CoreBattleEngine.Marble fromRight=new CoreBattleEngine.Marble(
+            6002,1,575f,1015f,-150f,0f,15f,1f);
+        left.marbles.add(fromLeft); left.active[0]++;
+        right.marbles.add(fromRight);right.active[1]++;
+        for(int i=0;i<2;i++){
+            left.advance(1f/60f);
+            right.advance(1f/60f);
+        }
+        if(!fromLeft.active || !fromRight.active)
+            throw new AssertionError("Center obstacle consumed marbles");
+        if(fromLeft.vx>=0 || fromRight.vx<=0 ||
+           Math.abs(fromLeft.vx+fromRight.vx)>2f)
+            throw new AssertionError("Center bumper is biased: vx="+
+                fromLeft.vx+"/"+fromRight.vx);
+        System.out.println("PASS: center bumper gives equal and opposite rebounds");
+    }
+
     private static void physicsRegressions(){
         // Historical bug: projectiles vanished mid-arena at age 19 seconds.
         CoreBattleEngine g=new CoreBattleEngine(77);
@@ -106,6 +139,7 @@ public final class CoreBattleSmokeTest {
     }
 
     public static void main(String[] args){
+        neutralCenterTest();
         physicsRegressions();
         int[] victories={0,0}, physicalVictories={0,0};
         int totalHits=0,maxPeak=0,shieldImpacts=0;
