@@ -138,7 +138,7 @@ public final class CoreBattleRenderer {
             int color=TEAM[side];
             float radius=CoreBattleEngine.CORE_RADIUS;
             // Two giant machine targets instead of tiny HUD-like icons.
-            float large=radius+114;
+            float large=radius+22; // bright circle is the actual 145-unit hit target
             disc(c,x+7,y+9,large+9,0xFF010102);
             disc(c,x,y,large,side==0?0xFF75650B:0xFF481C76);
             disc(c,x,y,large-15,side==0?0xFFBDA111:0xFF7026BA);
@@ -148,11 +148,32 @@ public final class CoreBattleRenderer {
                 p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.5f);
                 c.drawCircle(x,y,large-18-ring*12,p);
             }
-            disc(c,x,y,radius+9,0xFF050608);
-            disc(c,x,y,radius,side==0?0xFFD6B619:0xFF8430D2);
+            disc(c,x,y,radius+5,0xFF050608);
+            disc(c,x,y,radius-2,side==0?0xFFD6B619:0xFF8430D2);
             if(g.flash[side]>0)
-                disc(c,x,y,radius,opacity(Color.WHITE,
+                disc(c,x,y,radius-2,opacity(Color.WHITE,
                     255*g.flash[side]/.16f));
+            if(g.absorbedFlash[side]>0){
+                p.reset();p.setAntiAlias(true);
+                p.setColor(opacity(Color.WHITE,g.absorbedFlash[side]/.18f*230f));
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(12);
+                c.drawCircle(g.lastImpactX[side],g.lastImpactY[side],
+                    24+(1-g.absorbedFlash[side]/.18f)*44,p);
+            }
+            if(g.ending && g.destroyedAt[side]>=0){
+                float progress=1-g.endingTime/2.4f;
+                p.reset();p.setAntiAlias(true);
+                p.setColor(opacity(color,(1-progress)*250));
+                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(22*(1-progress)+3);
+                c.drawCircle(x,y,radius+progress*260,p);
+                for(int debris=0;debris<12;debris++){
+                    float angle=(float)(debris*Math.PI/6);
+                    float range=radius+progress*(110+debris%4*40);
+                    disc(c,x+(float)Math.cos(angle)*range,
+                        y+(float)Math.sin(angle)*range,
+                        Math.max(3,19*(1-progress)),color);
+                }
+            }
             disc(c,x,y,25,0xFF03FE26);
             disc(c,x-6,y-7,7,0xFFB9FFBA);
             float wear=1-g.hp[side]/CoreBattleEngine.MAX_HP;
@@ -202,40 +223,43 @@ public final class CoreBattleRenderer {
             CoreBattleEngine.BOTTOM+57,24,0xFFFFC97E,true);
     }
     private void hud(Canvas c,float h,CoreBattleEngine game,List<ModeEngine.Orb> entrants){
-        block(c,0,0,1080,159,0,0xFF050609);
-        title(c,"MARBLE LAB  /  CORE DESTRUCTION",540,43,34,Color.WHITE,true);
-        int secs=(int)Math.ceil(game.remaining());
-        title(c,String.format(Locale.US,"%02d:%02d",secs/60,secs%60),
-            540,98,47,0xFFE9E9E9,true);
+        // Fixed safe header: title, names, health and timer occupy separate rows.
+        // The previous labels were drawn over each other on a 9:16 phone.
+        block(c,0,0,1080,205,0,0xFF050609);
+        title(c,"MARBLE LAB   •   CORE DESTRUCTION",540,39,33,Color.WHITE,true);
         for(int side=0;side<2;side++){
             int color=TEAM[side],idx=game.entrantAtCore[side];
-            float x=side==0?27:570;
+            float cx=side==0?260:820;
+            float barX=side==0?24:593;
             String name=idx<entrants.size()?entrants.get(idx).racer.name:"TIME "+(side+1);
-            title(c,clip(name,13).toUpperCase(Locale.ROOT),x,91,32,color,false);
-            block(c,x,113,483,17,4,0xFF25272C);
-            block(c,x,113,Math.max(0,483*game.hp[side]/CoreBattleEngine.MAX_HP),
-                17,4,color);
-            title(c,"CORE "+Math.round(game.hp[side])+" HP   •   "+game.active[side]+" BOLAS",
-                x,153,23,0xFFCDCDCD,false);
+            title(c,clip(name,11).toUpperCase(Locale.ROOT),cx,81,32,color,true);
+            block(c,barX,98,463,24,4,0xFF25272C);
+            block(c,barX,98,Math.max(0,463*game.hp[side]/CoreBattleEngine.MAX_HP),
+                24,4,color);
+            title(c,Math.round(game.hp[side])+" HP    •    "+game.active[side]+" BOLINHAS",
+                cx,156,24,0xFFE6E6E6,true);
         }
-        float footer=h-97f;
-        block(c,0,footer,1080,97,0,0xF807080A);
+        int secs=(int)Math.ceil(game.remaining());
+        title(c,String.format(Locale.US,"%02d:%02d",secs/60,secs%60),
+            540,188,44,0xFFFFF1B4,true);
+        float footer=h-110f;
+        block(c,0,footer,1080,110,0,0xFA07080A);
         if(game.eventTimer>0f)
-            title(c,game.event,540,footer+39,36,0xFFECECEC,true);
-        else title(c,"MÁQUINAS  •  COLISÃO REAL  •  NÚCLEOS",
-            540,footer+39,27,0xFFABB2BA,true);
-        title(c,"PLACAR  "+game.winTotals[game.entrantAtCore[0]]+
+            title(c,game.event,540,footer+38,34,0xFFEDEDED,true);
+        else title(c,"FÍSICA 2D    •    ARMADURAS    •    GUINDASTES",
+            540,footer+38,26,0xFFABB2BA,true);
+        title(c,"PLACAR   "+game.winTotals[game.entrantAtCore[0]]+
             " : "+game.winTotals[game.entrantAtCore[1]]+
-            "  •  ONDAS A CADA 14s",540,footer+76,22,0xFF888B93,true);
+            "     •     ONDAS A CADA 14s",540,footer+78,24,0xFFD0D0D0,true);
         if(game.finished){
-            block(c,85,h*.41f,910,232,16,0xF50D0D11);
-            title(c,"NÚCLEO VENCEDOR",540,h*.41f+67,47,
+            block(c,85,h*.42f,910,232,16,0xF50D0D11);
+            title(c,"NÚCLEO VENCEDOR",540,h*.42f+67,47,
                 TEAM[Math.max(0,game.physicalWinner)],true);
             String who=game.winner>=0&&game.winner<entrants.size()?
                 entrants.get(game.winner).racer.name:"EQUIPE";
-            title(c,clip(who,16).toUpperCase(Locale.ROOT),540,h*.41f+151,
+            title(c,clip(who,16).toUpperCase(Locale.ROOT),540,h*.42f+151,
                 66,Color.WHITE,true);
-            title(c,"BATALHA ENCERRADA",540,h*.41f+202,
+            title(c,"BATALHA ENCERRADA",540,h*.42f+202,
                 26,0xFFCCCCCC,true);
         }
     }
@@ -247,10 +271,10 @@ public final class CoreBattleRenderer {
         float h=original.getHeight()/global;
         Canvas c=original;
         c.drawColor(BG);
-        float available=h-260f;
+        float available=Math.max(100,h-335f);
         float worldHeight=CoreBattleEngine.BOTTOM-CoreBattleEngine.TOP+85f;
         float sc=Math.min(1f,available/worldHeight);
-        float offsetY=164f+(available-worldHeight*sc)*.5f;
+        float offsetY=214f+(available-worldHeight*sc)*.5f;
         c.save();
         c.translate(540,offsetY);
         c.scale(sc,sc);
