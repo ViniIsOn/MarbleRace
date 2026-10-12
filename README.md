@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.9 beta 🎱
+# MarbleLab Studio — v1.9.1 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -139,3 +139,17 @@ A animação de tiros da v1.7 foi substituída por **bolinhas simuladas individu
 - Regressões de CI verificam colisões entre equipes, defesa real, partidas reproduzíveis e resultados dos dois lados. Compilação Android ainda precisa passar para considerar o APK pronto.
 
 **Atualizações:** preserve o mesmo applicationId. Não desinstale a versão antiga antes de assegurar um backup de corredores, imagens e músicas; o Android exige assinatura compatível para instalar APKs diretamente por cima.
+
+## v1.9.1 — Backup seguro, restauração confiável
+
+- **SALVAR NOVO BACKUP** cria um ZIP com nomes, imagens e músicas. O app agora primeiro conclui o arquivo em área temporária e verifica o diretório central do ZIP, o tamanho e o CRC de cada item.
+- Somente depois de aprovado o ZIP é copiado para o local escolhido pelo usuário. O arquivo final é reaberto e seu SHA-256 deve ser idêntico ao da cópia verificada.
+- **RESTAURAR BACKUP** valida um ZIP existente **antes** de alterar os personagens e a biblioteca. O ZIP é primeiro copiado para área temporária para testar integridade; ZIPs incompletos ou corrompidos são recusados com mensagem clara.
+- A restauração preserva a compatibilidade com os antigos backups JSON de corredores.
+- Agora há uma janela de progresso durante salvamento/restauração; não aparece confirmação antecipada.
+- Os arquivos são nomeados com data/hora para não confundir o backup anterior com o novo.
+- Um ZIP incompleto **não pode ter os dados ausentes recriados**. Não exclua seu arquivo antigo e, se os dados ainda estão no aplicativo, faça um novo backup e aguarde a mensagem de sucesso.
+- Os testes automatizados criam um ZIP íntegro, um ZIP truncado e outro com dados alterados para validar a detecção de problemas, além de compilar o APK.
+- Os backups ZIP podem exigir espaço livre temporário proporcional ao tamanho das músicas. Em caso de pouco espaço, libere armazenamento e tente de novo.
+
+**Importante:** ao instalar APK de outra execução do GitHub, a assinatura de debug pode mudar. O Android pode recusar atualizar por cima; não desinstale sem fazer primeiro uma cópia segura dos dados.
