@@ -83,6 +83,144 @@ public final class CoreBattleRenderer {
         disc(c,x,y+89,9,0xFFE3E6EB);
         title(c,"CRANE "+(side+1),center,y-57,23,0xFFAAB4C2,true);
     }
+    private void curvedPipe(Canvas c,boolean right,int color){
+        Path rail=new Path();
+        if(!right){
+            rail.moveTo(68,486);
+            rail.cubicTo(18,720,54,992,CoreBattleEngine.CORE_X[0],CoreBattleEngine.CORE_Y);
+        }else{
+            rail.moveTo(1012,486);
+            rail.cubicTo(1062,720,1026,992,CoreBattleEngine.CORE_X[1],CoreBattleEngine.CORE_Y);
+        }
+        p.reset();p.setAntiAlias(true);p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(33);
+        p.setColor(0xFF08090D);c.drawPath(rail,p);
+        p.setStrokeWidth(23);p.setColor(0xFF4A4B50);c.drawPath(rail,p);
+        p.setStrokeWidth(6);p.setColor(0xFF898E93);c.drawPath(rail,p);
+        p.setStyle(Paint.Style.FILL);
+        disc(c,right?1012:68,486,13,color);
+    }
+    private void machineryDecor(Canvas c,CoreBattleEngine game){
+        // Saw housings and green mechanical accent rails occupy the side lanes;
+        // their inner movable saws have corresponding collision bodies.
+        for(int side=0;side<2;side++){
+            float x=side==0?90:990;
+            saw(c,x,520,94,game.cranePhase*(side==0?1:-1));
+            p.reset();p.setAntiAlias(true);p.setStrokeWidth(11);
+            p.setStyle(Paint.Style.STROKE);p.setColor(0xFF88F41B);
+            Path green=new Path();
+            if(side==0){
+                green.moveTo(180,345);green.cubicTo(185,425,129,476,96,493);
+            }else{
+                green.moveTo(900,345);green.cubicTo(895,425,951,476,984,493);
+            }
+            c.drawPath(green,p);
+            p.setStyle(Paint.Style.FILL);
+        }
+    }
+    private void selectorAndScythe(Canvas c,CoreBattleEngine g){
+        CoreEquipmentSystem machine=g.equipment;
+        block(c,417,220,246,245,15,0xFF0F0A0A);
+        block(c,433,241,214,211,10,0xFF19120F);
+        for(int i=0;i<3;i++)
+            disc(c,473+i*65,289+i%2*43,16,0xFF533019);
+        block(c,431,426,218,23,1,0xFFCB0C6C);
+        for(CoreEquipmentSystem.SelectorBall b:machine.selector){
+            int col=b.side==0?YELLOW:PURPLE;
+            disc(c,b.x,b.y,14,col);
+            disc(c,b.x-4,b.y-5,4,0xDFFFFFFF);
+        }
+        // Two pads report the team selected by an actual top marble contact.
+        for(int i=0;i<2;i++)disc(c,478+i*124,221,9,i==0?YELLOW:PURPLE);
+        stroke(c,540,190,540,307,8,0xFF8C8C8F);
+        disc(c,540,197,24,0xFF2E3035);
+        disc(c,540,197,15,0xFFAAB2B8);
+        // The scythe is driven by the equipment state machine, not decoration.
+        float sx=machine.scytheX,sy=machine.scytheY;
+        stroke(c,540,197,sx,sy,5,0xFFB6BAC0);
+        disc(c,sx,sy,15,0xFFECEEF0);
+        Path blade=new Path();
+        blade.moveTo(sx-8,sy+6);
+        blade.quadTo(sx+48,sy+63,sx+130,sy-4);
+        blade.quadTo(sx+66,sy+36,sx+3,sy+26);
+        blade.close();
+        p.reset();p.setAntiAlias(true);p.setColor(0xFFBFC5CC);c.drawPath(blade,p);
+        if(machine.selectedType>=0 && machine.phase>=CoreEquipmentSystem.LIFTING
+            &&machine.phase<=CoreEquipmentSystem.DELIVERING){
+            int col=CoreEquipmentSystem.COLORS[machine.selectedType];
+            disc(c,sx+10,sy+25,17,col);
+            disc(c,sx+6,sy+20,6,0xFFFAF7FF);
+        }
+    }
+    private void weaponLegend(Canvas c,CoreBattleEngine game){
+        float x=427,y=900,w=226,h=337;
+        block(c,x-5,y-12,w+10,h+26,8,0xDD08090D);
+        title(c,"EQUIPAMENTOS",x+w*.5f,y+22,25,0xFFE8ECEF,true);
+        for(int i=0;i<CoreEquipmentSystem.NAMES.length;i++){
+            float cy=y+64+i*45;
+            boolean selected=game.equipment.lastType==i && game.equipment.phase!=CoreEquipmentSystem.IDLE;
+            if(selected)block(c,x+4,cy-26,w-8,39,4,0xFF29333D);
+            disc(c,x+20,cy-10,12,CoreEquipmentSystem.COLORS[i]);
+            title(c,CoreEquipmentSystem.NAMES[i],x+42,cy,21,0xFFE6E8ED,false);
+        }
+    }
+    private void movingConveyor(Canvas c,CoreBattleEngine game){
+        CoreEquipmentSystem eq=game.equipment;
+        float y=CoreEquipmentSystem.BELT_Y;
+        block(c,28,y-16,1024,80,3,0xFF090A0C);
+        block(c,32,y+13,1016,17,3,0xFF585960);
+        for(int i=0;i<24;i++){
+            float x=44+i*46;
+            disc(c,x,y+43,18,0xFF2F3439);
+            disc(c,x,y+43,8,0xFF777C81);
+        }
+        for(CoreEquipmentSystem.Item item:eq.conveyor){
+            float x=item.x;
+            disc(c,x,y-3,17,0xFF080A0F);
+            disc(c,x,y-3,13,CoreEquipmentSystem.COLORS[item.type]);
+            disc(c,x-4,y-8,5,0xFFB9B5C3);
+        }
+        // The TRASH boxes are explicitly scenery. They do not delete pickups,
+        // projectiles or marbles: recycling happens only outside the arena.
+        for(int i=0;i<5;i++){
+            float x=68+i*235;
+            block(c,x,y-47,82,35,3,0xFF777C81);
+            title(c,"TRASH",x+41,y-25,20,0xFF070707,true);
+        }
+    }
+    private void weaponEffects(Canvas c,CoreBattleEngine game){
+        for(int side=0;side<2;side++){
+            if(game.shieldSeconds[side]>0){
+                p.reset();p.setAntiAlias(true);p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(13);p.setColor(0xFF3BF1D2);
+                c.drawCircle(CoreBattleEngine.CORE_X[side],
+                    CoreBattleEngine.CORE_Y,CoreBattleEngine.CORE_RADIUS+56,p);
+                p.setStyle(Paint.Style.FILL);
+            }
+        }
+        if(game.beamSeconds>0 && game.beamSide>=0){
+            float start=CoreBattleEngine.CORE_X[game.beamSide];
+            float finish=CoreBattleEngine.CORE_X[1-game.beamSide];
+            int col=game.beamType==CoreEquipmentSystem.BURNING_LASER?
+                0xFFEA3A42:0xFF315BFA;
+            stroke(c,start,CoreBattleEngine.CORE_Y-50,
+                finish,CoreBattleEngine.CORE_Y-50,17,col);
+            stroke(c,start,CoreBattleEngine.CORE_Y-50,
+                finish,CoreBattleEngine.CORE_Y-50,5,0xFFEAF8FF);
+        }
+        for(CoreBattleEngine.WeaponProjectile shot:game.weaponProjectiles){
+            int col=CoreEquipmentSystem.COLORS[shot.type];
+            float radius=shot.type==CoreEquipmentSystem.BOMB?24:
+                shot.type==CoreEquipmentSystem.SAW?27:13;
+            if(shot.type==CoreEquipmentSystem.SAW)
+                saw(c,shot.x,shot.y,radius,shot.age*11);
+            else{
+                stroke(c,shot.x-shot.vx*.07f,shot.y-shot.vy*.07f,
+                    shot.x,shot.y,11,opacity(col,115));
+                disc(c,shot.x,shot.y,radius,col);
+            }
+        }
+    }
     private void arena(Canvas c,CoreBattleEngine g,List<ModeEngine.Orb> entrants){
         block(c,0,CoreBattleEngine.TOP-115,1080,
             CoreBattleEngine.BOTTOM-CoreBattleEngine.TOP+240,0,0xFF070708);
@@ -90,6 +228,7 @@ public final class CoreBattleRenderer {
             float yy=CoreBattleEngine.TOP+i*95;
             stroke(c,0,yy,1080,yy,1,0xFF141518);
         }
+        machineryDecor(c,g);
         crane(c,g,0);crane(c,g,1);
         // A central divider gives marbles separate launch lanes.
         for(CoreBattleEngine.Segment wall:g.segments){
@@ -189,6 +328,8 @@ public final class CoreBattleRenderer {
             face(c,g.entrantAtCore[side]<entrants.size()?entrants.get(g.entrantAtCore[side]).racer.avatar:null,
                 x,y+58,29,0xFF030304);
         }
+        curvedPipe(c,false,YELLOW);
+        curvedPipe(c,true,PURPLE);
         for(CoreBattleEngine.Armor a:g.armor){
             if(a.hp<=0)continue;
             int team=TEAM[a.team];
@@ -214,14 +355,10 @@ public final class CoreBattleRenderer {
             disc(c,spark.x,spark.y,2+spark.life*6,
                 opacity(spark.color,255*Math.min(1,spark.life)));
         }
-        // Bottom void consumes marbles immediately in physics.
-        block(c,0,CoreBattleEngine.BOTTOM,1080,75,0,0xFF020202);
-        for(int i=0;i<12;i++){
-            float x=40+i*92;
-            stroke(c,x,CoreBattleEngine.BOTTOM+12,x+39,CoreBattleEngine.BOTTOM+35,7,0xFFFF7F42);
-        }
-        title(c,"TRASH   ●   DESCARTE VISÍVEL   ●   TRASH",540,
-            CoreBattleEngine.BOTTOM+57,24,0xFFFFC97E,true);
+        weaponLegend(c,g);
+        movingConveyor(c,g);
+        weaponEffects(c,g);
+        selectorAndScythe(c,g);
     }
     private void hud(Canvas c,float h,CoreBattleEngine game,List<ModeEngine.Orb> entrants){
         // Fixed safe header: title, names, health and timer occupy separate rows.
