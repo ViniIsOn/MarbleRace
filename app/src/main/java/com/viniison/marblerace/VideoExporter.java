@@ -182,8 +182,8 @@ final class VideoExporter {
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
             int lastFrame=0;
             int podiumFrames=0;
-            // Selected mode 3 is Core Destruction: 60-90 seconds plus a short winner card.
-            final int maxFrames=(mode==3?100:(mode==0||mode==1?70:45))*FPS;
+            // Selected mode 3 is Core Destruction: up to 120 seconds plus a 2.4s destruction animation.
+            final int maxFrames=(mode==3?125:(mode==0||mode==1?70:45))*FPS;
             for(int frame=0;frame<maxFrames;frame++) {
                 if(cancel.get())throw new InterruptedException("Exportação cancelada");
                 if(race!=null){race.advance(1f/FPS);renderer.render(canvas,race,true);}
