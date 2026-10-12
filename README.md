@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.8 beta 🎱
+# MarbleLab Studio — v1.9 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -126,3 +126,16 @@ A animação de tiros da v1.7 foi substituída por **bolinhas simuladas individu
 - GitHub Actions verifica consistência, uso de memória, vencedor, dano nos núcleos e reprodutibilidade para exportação.
 
 **Limitações de hardware:** mesmo com teto de 300 por time, a taxa de quadros depende do celular. Se houver queda de desempenho, será necessário ajustar quantidade de bolinhas e detalhes visuais.
+
+## v1.9 — Correção da batalha Core Destruction (vídeo de teste)
+
+- Corrigida a hélice: **só aplica impulso físico quando a bolinha encosta na pá**, e o vetor tangencial respeita o sentido real da rotação. Antes um empurrão invisível favorecia uma das metades do mapa.
+- Núcleos com área de colisão consistente com o disco colorido visível; o aro decorativo fica um pouco maior.
+- As quatro placas de armadura agora interceptam projéteis que chegam ao núcleo. Enquanto alguma placa existir, ela recebe dano e a bolinha é **refletida com brilho visível**, sem desaparecer silenciosamente.
+- A vida do núcleo só cai após as armaduras serem destruídas.
+- A destruição tem transição de cerca de 2,4 s, onda de choque e fragmentos antes da tela do vencedor.
+- Interface 9:16 ajustada: cronômetro, nomes dos times e HP em linhas separadas.
+- Exportação aceita a disputa de até 120 s mais a animação e a tela de vitória, mantendo suporte à música do usuário e backup existente.
+- Regressões de CI verificam colisões entre equipes, defesa real, partidas reproduzíveis e resultados dos dois lados. Compilação Android ainda precisa passar para considerar o APK pronto.
+
+**Atualizações:** preserve o mesmo applicationId. Não desinstale a versão antiga antes de assegurar um backup de corredores, imagens e músicas; o Android exige assinatura compatível para instalar APKs diretamente por cima.
