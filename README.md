@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.9.2 beta 🎱
+# MarbleLab Studio — v1.9.3 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -164,3 +164,15 @@ A animação de tiros da v1.7 foi substituída por **bolinhas simuladas individu
 - Mantidos o salvamento de personagens, músicas e o sistema de backup ZIP verificado; `applicationId` original não foi alterado.
 
 **Observação:** uma arena pode produzir resultados diferentes mesmo quando simétrica devido ao movimento caótico, às sementes e ao volume de bolinhas. Testes automatizados são importantes, mas o resultado precisa ser conferido também no celular.
+
+## v1.9.3 — Core Destruction sem viés do obstáculo central
+
+- A **hélice e a serra centrais** foram removidas e substituídas por um **pino estático** que rebate bolinhas igualmente quando chegam por lados opostos.
+- **Duas hélices laterais e duas serras laterais espelhadas** continuam funcionando; os novos objetos centrais não aplicam impulso automático.
+- Corrigida a ordem de colunas das ondas: as bolinhas agora nascem em posições espelhadas entre esquerda e direita.
+- **Ondas de reviravolta**: a cada 16 segundos a partir dos 20s, se houver pelo menos 95 pontos de diferença de vida, o time em desvantagem recebe uma onda extra de até 45 bolinhas. As duas equipes obedecem à mesma regra e essas bolinhas precisam chegar ao núcleo rival para causar dano real.
+- Nos testes automatizados com **96 confrontos e replays idênticos**, os núcleos físicos venceram **44 vezes à esquerda** e **52 à direita**, contra 27/69 na versão intermediária. Isso mede melhora de equilíbrio, não garante vitória em cada disputa.
+- O teste automatizado de simetria também confere se o pino central rebate duas bolinhas com velocidades opostas equivalentes.
+- Mantidos backup verificado ZIP com músicas/imagens, aplicação Android original, exportação MP4 e demais modos.
+
+A atualização normal pode preservar dados se o APK for assinado pela mesma chave. Caso a assinatura não seja compatível, salve seus dados antes de remover a versão anterior.
