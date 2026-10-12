@@ -72,6 +72,21 @@ public final class CoreBattleEngine {
         }
     }
     public final ArrayList<Marble> marbles=new ArrayList<>();
+    // The scythe, chooser marbles and six equipment drops share this simulation
+    // and therefore replay exactly in the MP4 for any fixed seed.
+    public final CoreEquipmentSystem equipment;
+    public static final class WeaponProjectile {
+        public final int side,type;
+        public float x,y,vx,vy,age;
+        WeaponProjectile(int side,int type,float x,float y,float vx,float vy){
+            this.side=side;this.type=type;this.x=x;this.y=y;this.vx=vx;this.vy=vy;
+        }
+    }
+    public final ArrayList<WeaponProjectile> weaponProjectiles=new ArrayList<>();
+    public final float[] shieldSeconds={0,0};
+    public final int[] weaponHits={0,0};
+    public float beamSeconds=0,burningSeconds=0,burnPulse=0;
+    public int beamSide=-1,beamType=-1,burningTarget=-1;
     private final Marble[] allMarbles=new Marble[MAX_PER_TEAM*2];
     private final ArrayDeque<Marble> recycled=new ArrayDeque<>(MAX_PER_TEAM*2);
     public final int[] drained={0,0}, consumed={0,0}, shieldHits={0,0};
@@ -103,6 +118,7 @@ public final class CoreBattleEngine {
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         rng=new Random(seed ^ 0x53A1C4B17L);
+        equipment=new CoreEquipmentSystem(seed);
         for(int i=0;i<cells.length;i++)cells[i]=new ArrayList<>();
         for(int i=0;i<allMarbles.length;i++)allMarbles[i]=new Marble(0,0,0,0,0,0,12,1);
         reset();
@@ -112,6 +128,10 @@ public final class CoreBattleEngine {
         marbles.clear();recycled.clear();
         for(Marble m:allMarbles){m.active=false;recycled.addLast(m);}
         armor.clear();pegs.clear();segments.clear();sparks.clear();
+        equipment.reset();weaponProjectiles.clear();
+        Arrays.fill(shieldSeconds,0);Arrays.fill(weaponHits,0);
+        beamSeconds=burningSeconds=burnPulse=0;
+        beamSide=beamType=burningTarget=-1;
         Arrays.fill(hp,MAX_HP);Arrays.fill(flash,0);Arrays.fill(destroyedAt,-1f);
         Arrays.fill(hits,0);Arrays.fill(active,0);Arrays.fill(spawned,0);Arrays.fill(boosts,0);Arrays.fill(approaches,0);Arrays.fill(approachSumX,0);
         Arrays.fill(drained,0);Arrays.fill(consumed,0);Arrays.fill(shieldHits,0);
