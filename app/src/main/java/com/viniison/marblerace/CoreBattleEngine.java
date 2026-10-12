@@ -26,8 +26,6 @@ public final class CoreBattleEngine {
     private float accumulator=0f;
     private final Random rng;
     private final long seed;
-    /** Direction of the central mechanical paddle, seeded rather than score-biased. */
-    public final int centralSpin;
     /** Entrants swap core positions by match seed to distribute any map-side advantage. */
     public final int[] entrantAtCore;
     /** The arena never secretly changes team strengths based on the score. */
@@ -102,7 +100,6 @@ public final class CoreBattleEngine {
 
     public CoreBattleEngine(long seed){
         this.seed=seed;
-        centralSpin=(seed&2L)==0L?1:-1;
         boolean swapped=(seed&1L)!=0L;
         entrantAtCore=new int[]{swapped?1:0,swapped?0:1};
         rng=new Random(seed ^ 0x53A1C4B17L);
@@ -152,6 +149,10 @@ public final class CoreBattleEngine {
                 pegs.add(new Peg(px,py,13+i%2*4));
             }
         }
+        // A small centered static bumper replaces the biased central rotor
+        // and central saw. It splits contacts symmetrically and never injects
+        // ongoing sideways momentum into one specific team's approach.
+        pegs.add(new Peg(540f,1015f,24f));
     }
     private float rnd(float a,float b){return a+rng.nextFloat()*(b-a);}
     private static float clamp(float n,float lo,float hi){return Math.max(lo,Math.min(hi,n));}
@@ -246,8 +247,9 @@ public final class CoreBattleEngine {
         return true;
     }
     private void machinery(Marble m){
-        // Two spinning saws + one center pinball saw.
-        float[][] saws={{340,858,40},{740,858,40},{540,1045,35}};
+        // Two mirrored side saws only: no center saw that redirects
+        // one team's stream into the other core.
+        float[][] saws={{340,858,40},{740,858,40}};
         for(float[] saw:saws){
             float dx=m.x-saw[0],dy=m.y-saw[1];
             if(dist2(dx,dy)<(m.r+saw[2]+2)*(m.r+saw[2]+2)){
@@ -255,10 +257,10 @@ public final class CoreBattleEngine {
                 setEvent("SERRA GIRATÓRIA");
             }
         }
-        // Two rotating rigid paddles with tangential velocity transfer.
-        float[][] prop={{280,770},{800,770},{540,985}};
+        // Mirrored side paddles. No invisible center blade remains.
+        float[][] prop={{280,770},{800,770}};
         for(int i=0;i<prop.length;i++){
-            float ang=(i==2?centralSpin:(i==1?-1:1))*cranePhase*2.35f + (i==2?1.5707963f:0f);
+            float ang=(i==1?-1f:1f)*cranePhase*2.35f;
             float vx=(float)Math.cos(ang)*105f,vy=(float)Math.sin(ang)*105f;
             float x=prop[i][0],y=prop[i][1];
             float ds=dist2(m.x-x,m.y-y);
@@ -267,7 +269,7 @@ public final class CoreBattleEngine {
                 // Crucially, its tangential velocity uses the SAME angular
                 // direction as the drawn blade (formerly favored the right).
                 if(segmentCollision(m,x-vx,y-vy,x+vx,y+vy,13,0)){
-                    float direction=i==2?centralSpin:(i==1?-1f:1f);
+                    float direction=i==1?-1f:1f;
                     float angularVelocity=direction*SPIN_RATE;
                     float kickX=-(m.y-y)*angularVelocity*.19f;
                     float kickY=(m.x-x)*angularVelocity*.19f;
