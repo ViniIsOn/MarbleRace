@@ -5,6 +5,10 @@ import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
+import java.util.Arrays;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -37,30 +41,58 @@ final class StudioBackup {
             this.shuffle=shuffle;this.hasMusic=includesMusic;
         }
     }
+    private static File stagingFile(Context ctx)throws Exception {
+        File location=ctx.getExternalCacheDir();
+        if(location==null||!location.isDirectory())location=ctx.getCacheDir();
+        return File.createTempFile("marble_staging_",".zip",location);
+    }
+    private static long copyLimited(InputStream input,OutputStream output,long max)throws Exception{
+        byte[] buffer=new byte[32768];
+        long copied=0;
+        int n;
+        while((n=input.read(buffer))!=-1){
+            copied+=n;
+            if(copied>max)throw new Exception("Arquivo de backup grande demais para processar.");
+            output.write(buffer,0,n);
+        }
+        output.flush();
+        return copied;
+    }
+    private static byte[] digest(InputStream input)throws Exception{
+        MessageDigest hash=MessageDigest.getInstance("SHA-256");
+        byte[] buffer=new byte[32768];
+        int n;
+        while((n=input.read(buffer))!=-1)hash.update(buffer,0,n);
+        return hash.digest();
+    }
     static void write(Context ctx,Uri destination,List<RaceEngine.Racer> racers,
                       int mode,int track,MusicLibrary library)throws Exception{
-        ArrayList<MusicLibrary.Track> songs=library.snapshot();
-        if(songs.size()>300)throw new Exception("Músicas demais para o backup");
-        JSONObject manifest=new JSONObject();
-        manifest.put("format","MarbleLab-studio-zip");
-        manifest.put("version",2);
-        manifest.put("creator",RacerBackup.encode(racers,mode,track));
-        manifest.put("selected",library.selectedIndex());
-        manifest.put("shuffle",library.isShuffle());
-        JSONArray audio=new JSONArray();
-        for(int i=0;i<songs.size();i++){
-            JSONObject item=new JSONObject();
-            item.put("title",songs.get(i).title);
-            item.put("entry","audio/"+i+".bin");
-            audio.put(item);
-        }
-        manifest.put("audio",audio);
-        byte[] json=manifest.toString().getBytes(StandardCharsets.UTF_8);
-        if(json.length>META_LIMIT)throw new Exception("Informações do backup muito grandes");
-        try(OutputStream stream=ctx.getContentResolver().openOutputStream(destination,"wt")){
-            if(stream==null)throw new Exception("Não foi possível abrir o arquivo de backup");
-            try(ZipOutputStream zip=new ZipOutputStream(stream)){
-                zip.setLevel(0); // compressed music does not benefit from additional compression
+        // Stage a COMPLETE archive first. On the previous implementation,
+        // Android's CREATE_DOCUMENT created a visible partial ZIP immediately.
+        // If writing was interrupted, an unusable file was left in Downloads.
+        File staged=stagingFile(ctx);
+        try{
+            ArrayList<MusicLibrary.Track> songs=library.snapshot();
+            if(songs.size()>300)throw new Exception("Músicas demais para o backup");
+            JSONObject manifest=new JSONObject();
+            manifest.put("format","MarbleLab-studio-zip");
+            manifest.put("version",2);
+            manifest.put("creator",RacerBackup.encode(racers,mode,track));
+            manifest.put("selected",library.selectedIndex());
+            manifest.put("shuffle",library.isShuffle());
+            JSONArray audio=new JSONArray();
+            for(int i=0;i<songs.size();i++){
+                JSONObject item=new JSONObject();
+                item.put("title",songs.get(i).title);
+                item.put("entry","audio/"+i+".bin");
+                audio.put(item);
+            }
+            manifest.put("audio",audio);
+            byte[] json=manifest.toString().getBytes(StandardCharsets.UTF_8);
+            if(json.length>META_LIMIT)throw new Exception("Informações do backup muito grandes");
+            try(ZipOutputStream zip=new ZipOutputStream(
+                    new BufferedOutputStream(new FileOutputStream(staged)))){
+                zip.setLevel(0);
                 zip.putNextEntry(new ZipEntry("manifest.json"));
                 zip.write(json);
                 zip.closeEntry();
@@ -87,6 +119,31 @@ final class StudioBackup {
                     zip.closeEntry();
                 }
             }
+            // ZIP central directory and CRC of every song must be valid before
+            // sending a single byte to the user's chosen document provider.
+            BackupIntegrity.verify(staged);
+            byte[] expected;
+            try(InputStream local=new BufferedInputStream(new FileInputStream(staged))){
+                expected=digest(local);
+            }
+            try(InputStream local=new BufferedInputStream(new FileInputStream(staged));
+                OutputStream dest=ctx.getContentResolver().openOutputStream(destination,"wt")){
+                if(dest==null)throw new Exception("Sem permissão para salvar o arquivo.");
+                long copied=copyLimited(local,dest,BackupIntegrity.MAX_ARCHIVE_BYTES);
+                if(copied!=staged.length())
+                    throw new Exception("Nem todos os dados foram escritos no arquivo.");
+            }
+            // Some cloud/file providers silently truncate writes: verify that
+            // the actual bytes stored can be read back, not just our temp ZIP.
+            byte[] actual;
+            try(InputStream reopened=ctx.getContentResolver().openInputStream(destination)){
+                if(reopened==null)throw new Exception("Não consegui verificar o backup salvo.");
+                actual=digest(reopened);
+            }
+            if(!Arrays.equals(expected,actual))
+                throw new Exception("O armazenamento não salvou o ZIP completo. Não use esse arquivo: tente salvar na pasta Downloads do celular.");
+        }finally{
+            if(staged.exists())staged.delete();
         }
     }
     private static byte[] readMeta(ZipInputStream zip)throws Exception{
@@ -109,8 +166,17 @@ final class StudioBackup {
                 // Import old v1 JSON backups without losing the existing music library.
                 return new Loaded(RacerBackup.read(ctx,uri),new ArrayList<>(),-1,false,false);
             }
-            ArrayList<File> written=new ArrayList<>();
-            try(ZipInputStream zip=new ZipInputStream(buffered)){
+            // Import into a temporary file, validate ZIP's central directory
+            // and the CRC of EVERY entry before touching current profiles.
+            File staged=stagingFile(ctx);
+            try{
+                try(OutputStream temp=new BufferedOutputStream(new FileOutputStream(staged))){
+                    copyLimited(buffered,temp,BackupIntegrity.MAX_ARCHIVE_BYTES);
+                }
+                BackupIntegrity.verify(staged);
+                ArrayList<File> written=new ArrayList<>();
+                try(ZipInputStream zip=new ZipInputStream(
+                        new BufferedInputStream(new FileInputStream(staged)))){
                 ZipEntry first=zip.getNextEntry();
                 if(first==null||!"manifest.json".equals(first.getName()))
                     throw new Exception("Backup ZIP sem manifesto válido");
@@ -169,6 +235,9 @@ final class StudioBackup {
                     for(File file:written)file.delete();
                     throw failed;
                 }
+                }
+            }finally{
+                if(staged.exists())staged.delete();
             }
         }
     }
