@@ -6,8 +6,8 @@ android {
         applicationId 'com.viniison.marblerace'
         minSdk 26
         targetSdk 35
-        versionCode 16
-        versionName '1.9.3-beta'
+        versionCode 17
+        versionName '1.10-beta'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
