@@ -1,4 +1,4 @@
-# MarbleLab Studio — v1.9.1 beta 🎱
+# MarbleLab Studio — v1.9.2 beta 🎱
 
 Jogo original de competições animadas no Android, sem SDK de anúncios, feito em Java e pensado para vídeos verticais (Shorts). O repositório continua chamado **MarbleRace**; o applicationId permanece `com.viniison.marblerace` para permitir atualizar a instalação existente.
 
@@ -153,3 +153,14 @@ A animação de tiros da v1.7 foi substituída por **bolinhas simuladas individu
 - Os backups ZIP podem exigir espaço livre temporário proporcional ao tamanho das músicas. Em caso de pouco espaço, libere armazenamento e tente de novo.
 
 **Importante:** ao instalar APK de outra execução do GitHub, a assinatura de debug pode mudar. O Android pode recusar atualizar por cima; não desinstale sem fazer primeiro uma cópia segura dos dados.
+
+## v1.9.2 — Correção do obstáculo central
+
+- **Removida a hélice central (x=540, y=985)**: ela podia transferir impulso lateral às bolinhas e favorecer um dos caminhos dos núcleos.
+- **Removida a serra central (x=540, y=1045)**: o centro não aplica mais rebatedores giratórios assimétricos.
+- No lugar foi adicionado um **pino arredondado, pequeno e estático (x=540, y=1015)**, com colisão para qualquer lado sem motor ou impulso contínuo.
+- Hélices e serras laterais continuam presentes em versões espelhadas; os elementos do desenho e os colisores usam a mesma geometria.
+- Adicionados testes automáticos de colisão espelhada de duas bolinhas no obstáculo central, além dos 32 confrontos determinísticos do Core Destruction.
+- Mantidos o salvamento de personagens, músicas e o sistema de backup ZIP verificado; `applicationId` original não foi alterado.
+
+**Observação:** uma arena pode produzir resultados diferentes mesmo quando simétrica devido ao movimento caótico, às sementes e ao volume de bolinhas. Testes automatizados são importantes, mas o resultado precisa ser conferido também no celular.
