@@ -91,7 +91,8 @@ public final class CoreBattleEngine {
     public final float[] approachSumX={0,0};
     public float elapsed=0,cranePhase=0;
     public int winner=-1,physicalWinner=-1;
-    public boolean finished=false;
+    public boolean finished=false,ending=false;
+    public float endingTime=0f;
     public String event="PREPARE-SE",lastEvent="PREPARE-SE";
     public float eventTimer=0;
     private final float[] nextSpawn={0,0};
@@ -119,7 +120,8 @@ public final class CoreBattleEngine {
         Arrays.fill(drained,0);Arrays.fill(consumed,0);Arrays.fill(shieldHits,0);
         Arrays.fill(lastImpactX,0);Arrays.fill(lastImpactY,0);Arrays.fill(absorbedFlash,0);accumulator=0;
         nextSpawn[0]=.55f;nextSpawn[1]=.55f;nextWave=12f;
-        elapsed=0;cranePhase=0;winner=-1;physicalWinner=-1;finished=false;event="PREPARE-SE";
+        elapsed=0;cranePhase=0;winner=-1;physicalWinner=-1;
+        finished=false;ending=false;endingTime=0;event="PREPARE-SE";
         lastEvent=event;eventTimer=2.8f;idSequence=0;frames=0;burstAtFinish=false;
         // Outer border + central separator; funnels guide opposite trajectories.
         segments.add(new Segment(MIN_X,TOP,MIN_X,BOTTOM));
@@ -438,8 +440,9 @@ public final class CoreBattleEngine {
         }
     }
     private void endMatch(){
-        if(finished)return;
-        finished=true;
+        if(finished||ending)return;
+        ending=true;
+        endingTime=2.4f;
         // The core destroyed FIRST loses, even if both cores reach zero before
         // the 60-second minimum presentation window has ended.
         if(destroyedAt[0]>=0 || destroyedAt[1]>=0){
@@ -471,6 +474,18 @@ public final class CoreBattleEngine {
     private void fixedStep(float dt){
         elapsed+=dt;frames++;cranePhase+=dt*2.45f;
         eventTimer=Math.max(0,eventTimer-dt);
+        if(ending){
+            // Preserve the last frame and animate the destruction before the
+            // podium appears; no instant freeze or hidden moving projectiles.
+            for(Spark p:sparks){
+                p.x+=p.vx*dt;p.y+=p.vy*dt;
+                p.vy+=195*dt;p.life-=dt;
+            }
+            sparks.removeIf(p->p.life<=0);
+            endingTime-=dt;
+            if(endingTime<=0){endingTime=0;finished=true;}
+            return;
+        }
         for(int i=0;i<2;i++){
             flash[i]=Math.max(0,flash[i]-dt);
             absorbedFlash[i]=Math.max(0,absorbedFlash[i]-dt);
